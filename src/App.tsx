@@ -8,6 +8,7 @@ import { FoodsPage } from './pages/Foods'
 import { WeightsPage } from './pages/Weights'
 import { CalendarPage } from './pages/CalendarPage'
 import { ProfilePage } from './pages/Profile'
+import { ReportPage } from './pages/Report'
 
 export default function App() {
   const [section = '', ...rest] = useRoute()
@@ -22,6 +23,7 @@ export default function App() {
     case 'peso': page = <WeightsPage key={id} id={id} />; break
     case 'calendario': page = <CalendarPage />; break
     case 'scheda': page = <ProfilePage />; break
+    case 'riepilogo': page = <ReportPage />; break
     default: page = <Dashboard />
   }
 
@@ -31,7 +33,7 @@ export default function App() {
     <>
       {page}
       {/* nei moduli di inserimento/modifica la barra viene nascosta */}
-      {!id && <BottomNav current={tab} />}
+      {!id && section !== 'riepilogo' && <BottomNav current={tab} />}
     </>
   )
 }

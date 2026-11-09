@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, getProfile, type Profile } from '../db'
 import { ageLabel, formatDate } from '../lib/dates'
 import { exportBackup, importBackup } from '../lib/backup'
+import { navigate } from '../lib/router'
 import { Button, Card, Field, Input, Loading, Page, SectionTitle, TextArea } from '../components/ui'
 
 export function ProfilePage() {
@@ -85,6 +86,18 @@ function ProfileInner({ profile }: { profile: Profile }) {
           {saved ? '✓ Salvato' : 'Salva scheda'}
         </Button>
       </div>
+
+      <SectionTitle>Riepilogo</SectionTitle>
+      <Card onClick={() => navigate('/riepilogo')}>
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">📄</span>
+          <div className="flex-1">
+            <div className="font-medium">Riepilogo sanitario in PDF</div>
+            <div className="text-sm text-muted">Malattie, visite, farmaci, cibo e peso di un periodo</div>
+          </div>
+          <span className="text-muted">›</span>
+        </div>
+      </Card>
 
       <SectionTitle>Backup dei dati</SectionTitle>
       <BackupCard />

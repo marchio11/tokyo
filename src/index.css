@@ -45,3 +45,27 @@ textarea {
 input[type='date']::-webkit-calendar-picker-indicator {
   filter: invert(0.7);
 }
+
+/* stampa / PDF del riepilogo */
+@media print {
+  @page {
+    margin: 14mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  header.sticky,
+  nav,
+  .no-print {
+    display: none !important;
+  }
+  .report {
+    border-radius: 0 !important;
+    padding: 0 !important;
+  }
+  #root > div {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+}
