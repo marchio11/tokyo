@@ -1,0 +1,8 @@
+{
+  // Pubblicazione su Cloudflare Workers: vengono serviti i file statici dell'app (cartella dist)
+  "name": "tokyo",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist"
+  }
+}
