@@ -11,6 +11,8 @@ export interface Visit {
   type: string
   vet?: string
   notes?: string
+  /** promemoria per il richiamo / la visita successiva, calcolato dalla data della visita */
+  reminder?: Reminder
   attachmentIds: string[]
   createdAt: number
 }
@@ -30,7 +32,7 @@ export interface Illness {
 }
 
 export type MedKind = 'farmaco' | 'integratore' | 'antiparassitario'
-export type IntervalUnit = 'giorni' | 'settimane' | 'mesi'
+export type IntervalUnit = 'giorni' | 'settimane' | 'mesi' | 'anni'
 
 export interface Reminder {
   amount: number

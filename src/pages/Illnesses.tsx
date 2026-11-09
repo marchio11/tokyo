@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, deleteWithAttachments, getProfile, newId, type Illness, type Severity } from '../db'
 import { daysBetween, periodLabel, todayISO } from '../lib/dates'
-import { goBack, navigate } from '../lib/router'
+import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
 import { AttachmentsField, useAttachments } from '../components/Attachments'
 import { ComboInput } from '../components/ComboInput'
@@ -75,7 +75,7 @@ function IllnessForm({ id }: { id: string }) {
 function IllnessFormInner({ rec, categories }: { rec: Illness | null; categories: string[] }) {
   const [category, setCategory] = useState(rec?.category ?? '')
   const [description, setDescription] = useState(rec?.description ?? '')
-  const [startDate, setStartDate] = useState(rec?.startDate ?? todayISO())
+  const [startDate, setStartDate] = useState(rec?.startDate ?? presetDate(todayISO()))
   const [endDate, setEndDate] = useState(rec?.endDate ?? '')
   const [severity, setSeverity] = useState<Severity | ''>(rec?.severity ?? '')
   const [notes, setNotes] = useState(rec?.notes ?? '')

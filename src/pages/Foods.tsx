@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, newId, type Food, type FoodKind } from '../db'
 import { periodLabel, todayISO } from '../lib/dates'
-import { goBack, navigate } from '../lib/router'
+import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
 import { Card, Empty, Fab, Field, FormActions, Input, Loading, Page, Pill, SectionTitle, Segmented, TextArea } from '../components/ui'
 
@@ -62,7 +62,7 @@ function FoodForm({ id }: { id: string }) {
 function FoodFormInner({ rec }: { rec: Food | null }) {
   const [kind, setKind] = useState<FoodKind>(rec?.kind ?? 'crocchette')
   const [name, setName] = useState(rec?.name ?? '')
-  const [startDate, setStartDate] = useState(rec?.startDate ?? todayISO())
+  const [startDate, setStartDate] = useState(rec?.startDate ?? presetDate(todayISO()))
   const [endDate, setEndDate] = useState(rec?.endDate ?? '')
   const [notes, setNotes] = useState(rec?.notes ?? '')
   const validEnd = !endDate || endDate >= startDate

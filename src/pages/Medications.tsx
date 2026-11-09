@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, deleteWithAttachments, newId, type IntervalUnit, type Medication, type MedKind } from '../db'
 import { addDays, addInterval, formatDate, periodLabel, todayISO } from '../lib/dates'
-import { dueReminders, reminderText } from '../lib/reminders'
-import { goBack, navigate } from '../lib/router'
+import { allReminders } from '../lib/reminders'
+import { ReminderCard } from '../components/ReminderCard'
+import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
 import { AttachmentsField, useAttachments } from '../components/Attachments'
-import { Button, Card, Empty, Fab, Field, FormActions, Input, Loading, Page, Pill, SectionTitle, Segmented, Select, TextArea } from '../components/ui'
+import { Card, Empty, Fab, Field, FormActions, Input, Loading, Page, Pill, SectionTitle, Segmented, Select, TextArea } from '../components/ui'
 
 export const MED_KINDS: { value: MedKind; label: string; color: string }[] = [
   { value: 'farmaco', label: 'Farmaco', color: '#f97316' },
@@ -28,7 +29,7 @@ function MedList() {
   const active = meds.filter((m) => m.startDate <= today && (!m.endDate || m.endDate >= today))
   const future = meds.filter((m) => m.startDate > today)
   const ended = meds.filter((m) => m.endDate && m.endDate < today)
-  const reminders = dueReminders(meds)
+  const reminders = allReminders(meds)
 
   return (
     <Page title="Farmaci e integratori" back="/">
@@ -39,7 +40,7 @@ function MedList() {
           <SectionTitle>Prossimi cicli</SectionTitle>
           <div className="space-y-2">
             {reminders.map((r) => (
-              <ReminderCard key={r.med.id} med={r.med} dueDate={r.dueDate} daysLeft={r.daysLeft} />
+              <ReminderCard key={r.key} r={r} />
             ))}
           </div>
         </>
@@ -52,33 +53,6 @@ function MedList() {
       <div className="space-y-2 opacity-80">{ended.map((m) => <MedRow key={m.id} m={m} />)}</div>
       <Fab to="/farmaci/nuovo" />
     </Page>
-  )
-}
-
-export function ReminderCard({ med, dueDate, daysLeft, compact }: { med: Medication; dueDate: string; daysLeft: number; compact?: boolean }) {
-  const urgent = daysLeft <= 7
-  return (
-    <Card className={urgent ? 'ring-1 ring-shiba/60' : ''}>
-      <div className="flex items-center gap-3">
-        <span className="text-2xl">{daysLeft <= 0 ? '⏰' : '🔔'}</span>
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-medium">Nuovo ciclo: {med.name}</div>
-          <div className={`text-sm ${urgent ? 'text-shiba' : 'text-muted'}`}>
-            {reminderText(daysLeft)} · {formatDate(dueDate)}
-          </div>
-        </div>
-      </div>
-      {!compact && (
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <Button variant="ghost" className="py-2 text-sm" onClick={() => db.medications.update(med.id, { reminder: { ...med.reminder!, done: true } })}>
-            Archivia avviso
-          </Button>
-          <Button className="py-2 text-sm" onClick={() => navigate(`/farmaci/nuovo/da/${med.id}`)}>
-            Avvia ciclo
-          </Button>
-        </div>
-      )}
-    </Card>
   )
 }
 
@@ -121,7 +95,7 @@ function MedFormInner({ rec, template }: { rec: Medication | null; template: Med
   const [name, setName] = useState(src?.name ?? '')
   const [dosage, setDosage] = useState(src?.dosage ?? '')
   const [frequency, setFrequency] = useState(src?.frequency ?? '')
-  const [startDate, setStartDate] = useState(rec?.startDate ?? todayISO())
+  const [startDate, setStartDate] = useState(rec?.startDate ?? presetDate(todayISO()))
   const [endDate, setEndDate] = useState(rec?.endDate ?? '')
   const [notes, setNotes] = useState(rec?.notes ?? '')
   const [remOn, setRemOn] = useState(!!src?.reminder)
@@ -210,11 +184,14 @@ function MedFormInner({ rec, template }: { rec: Medication | null; template: Med
           {remOn && (
             <>
               <div className="flex items-center gap-2">
-                <Input type="number" inputMode="numeric" min={1} value={remAmount} onChange={(e) => setRemAmount(e.target.value)} className="w-20 text-center" />
+                <div className="w-20 shrink-0">
+                  <Input type="number" inputMode="numeric" min={1} value={remAmount} onChange={(e) => setRemAmount(e.target.value)} className="text-center" />
+                </div>
                 <Select value={remUnit} onChange={(e) => setRemUnit(e.target.value as IntervalUnit)} className="flex-1">
                   <option value="giorni">giorni</option>
                   <option value="settimane">settimane</option>
                   <option value="mesi">mesi</option>
+                  <option value="anni">anni</option>
                 </Select>
                 <span className="text-sm text-muted">dopo la fine</span>
               </div>

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, newId, type Weight } from '../db'
 import { addInterval, daysBetween, formatDate, todayISO } from '../lib/dates'
-import { goBack, navigate } from '../lib/router'
+import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
 import { WeightChart } from '../components/WeightChart'
 import { Card, Empty, Fab, Field, FormActions, Input, Loading, Page, SectionTitle, Segmented, TextArea } from '../components/ui'
@@ -104,7 +104,7 @@ function WeightForm({ id }: { id: string }) {
 }
 
 function WeightFormInner({ rec }: { rec: Weight | null }) {
-  const [date, setDate] = useState(rec?.date ?? todayISO())
+  const [date, setDate] = useState(rec?.date ?? presetDate(todayISO()))
   const [kg, setKg] = useState(rec ? String(rec.kg).replace('.', ',') : '')
   const [notes, setNotes] = useState(rec?.notes ?? '')
   const value = parseFloat(kg.replace(',', '.'))

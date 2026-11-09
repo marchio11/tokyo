@@ -1,9 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, getProfile, type Illness } from '../db'
 import { ageLabel, daysBetween, formatDate, todayISO } from '../lib/dates'
-import { dueReminders } from '../lib/reminders'
+import { allReminders } from '../lib/reminders'
+import { ReminderCard } from '../components/ReminderCard'
 import { navigate } from '../lib/router'
-import { ReminderCard, medColor } from './Medications'
+import { medColor } from './Medications'
 import { fmtKg } from './Weights'
 import { Card, Loading, SectionTitle } from '../components/ui'
 
@@ -52,7 +53,7 @@ export function Dashboard() {
   // prima gli episodi in corso, poi i più recenti, in fondo quelli mai registrati
   counters.sort((a, b) => Number(b.ongoing) - Number(a.ongoing) || (a.days ?? 1e9) - (b.days ?? 1e9))
 
-  const reminders = dueReminders(medications).filter((r) => r.daysLeft <= 30)
+  const reminders = allReminders(medications, visits).filter((r) => r.daysLeft <= 30)
   const activeMeds = medications.filter((m) => m.startDate <= today && (!m.endDate || m.endDate >= today))
   const activeFoods = foods.filter((f) => f.startDate <= today && (!f.endDate || f.endDate >= today))
   const nextVisit = visits.find((v) => v.date > today)
@@ -63,7 +64,7 @@ export function Dashboard() {
         <img src="icon-192.png" alt="" className="size-12 rounded-2xl" />
         <div>
           <h1 className="text-2xl font-semibold">
-            Ciao <span className="text-shiba">{profile.name}</span>
+            <span className="text-shiba">{profile.name}</span>
           </h1>
           <p className="text-sm text-muted">
             {profile.breed}
@@ -91,9 +92,7 @@ export function Dashboard() {
           <SectionTitle>Promemoria</SectionTitle>
           <div className="space-y-2">
             {reminders.map((r) => (
-              <div key={r.med.id} onClick={() => navigate('/farmaci')}>
-                <ReminderCard med={r.med} dueDate={r.dueDate} daysLeft={r.daysLeft} compact />
-              </div>
+              <ReminderCard key={r.key} r={r} compact />
             ))}
           </div>
         </>

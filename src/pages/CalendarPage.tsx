@@ -20,6 +20,7 @@ export function CalendarPage() {
   const now = new Date()
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() })
   const [selected, setSelected] = useState(todayISO())
+  const [adding, setAdding] = useState(false)
   const touchX = useRef<number | null>(null)
 
   const shift = (delta: number) =>
@@ -159,6 +160,62 @@ export function CalendarPage() {
           <p className="px-1 pt-1 text-sm text-muted">🍚 Alimentazione: {dayFoods.map((f) => f.name).join(', ')}</p>
         )}
       </div>
+
+      <button
+        onClick={() => setAdding(true)}
+        aria-label="Aggiungi"
+        className="fixed right-5 bottom-[calc(env(safe-area-inset-bottom)+84px)] z-30 grid size-14 place-items-center rounded-full bg-shiba text-3xl text-black shadow-lg shadow-shiba/20 active:scale-95"
+      >
+        +
+      </button>
+      {adding && <AddSheet date={selected} onClose={() => setAdding(false)} />}
     </Page>
+  )
+}
+
+const ADD_OPTIONS = [
+  { to: '/visite/nuovo', icon: '🩺', label: 'Visita', hint: 'anche futura, con promemoria richiamo', color: '#3b82f6' },
+  { to: '/malattie/nuovo', icon: '🤒', label: 'Malattia', hint: 'inizio di un episodio', color: '#ef4444' },
+  { to: '/farmaci/nuovo', icon: '💊', label: 'Farmaco o integratore', hint: 'inizio di un ciclo', color: '#f97316' },
+  { to: '/cibo/nuovo', icon: '🍚', label: 'Alimentazione', hint: 'cambio di cibo', color: '#a855f7' },
+  { to: '/peso/nuovo', icon: '⚖️', label: 'Pesata', hint: '', color: '#eab308' },
+]
+
+/** Pannello dal basso per scegliere cosa aggiungere nel giorno selezionato */
+function AddSheet({ date, onClose }: { date: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end bg-black/60" onClick={onClose}>
+      <div
+        className="mx-auto w-full max-w-2xl rounded-t-3xl bg-card px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+16px)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line" />
+        <h2 className="mb-1 px-1 font-semibold">Aggiungi</h2>
+        <p className="mb-3 px-1 text-sm text-muted capitalize">{formatDateLong(date)}</p>
+        <div className="space-y-1.5">
+          {ADD_OPTIONS.map((o) => (
+            <button
+              key={o.to}
+              onClick={() => {
+                onClose()
+                navigate(`${o.to}?data=${date}`)
+              }}
+              className="flex w-full items-center gap-3 rounded-xl bg-card-2 px-3 py-3 text-left active:bg-line"
+            >
+              <span className="h-8 w-1 rounded-full" style={{ background: o.color }} />
+              <span className="text-xl">{o.icon}</span>
+              <span className="flex-1">
+                <span className="block font-medium">{o.label}</span>
+                {o.hint && <span className="block text-xs text-muted">{o.hint}</span>}
+              </span>
+              <span className="text-muted">›</span>
+            </button>
+          ))}
+        </div>
+        <button onClick={onClose} className="mt-3 w-full rounded-xl py-3 text-muted">
+          Annulla
+        </button>
+      </div>
+    </div>
   )
 }
