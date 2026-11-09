@@ -52,7 +52,7 @@ function Main() {
 
   let page
   switch (section) {
-    case 'visite': page = <VisitsPage key={id} id={id} />; break
+    case 'visite': page = <VisitsPage key={rest.join('/')} parts={rest} />; break
     case 'malattie': page = <IllnessesPage key={id} id={id} />; break
     case 'farmaci': page = <MedicationsPage key={rest.join('/')} parts={rest} />; break
     case 'cibo': page = <FoodsPage key={id} id={id} />; break

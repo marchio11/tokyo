@@ -30,9 +30,10 @@ export function addInterval(date: ISODate, amount: number, unit: IntervalUnit): 
   if (unit === 'giorni') d.setDate(d.getDate() + amount)
   else if (unit === 'settimane') d.setDate(d.getDate() + amount * 7)
   else {
+    const months = unit === 'anni' ? amount * 12 : amount
     const day = d.getDate()
     d.setDate(1)
-    d.setMonth(d.getMonth() + amount)
+    d.setMonth(d.getMonth() + months)
     const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
     d.setDate(Math.min(day, last))
   }

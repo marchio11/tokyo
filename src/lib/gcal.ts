@@ -2,7 +2,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db, type Medication, type Visit } from '../db'
 import { fs } from './firebase'
 import { gfetch, gjson } from './googleApi'
-import { addDays, todayISO } from './dates'
+import { addDays, addInterval, todayISO } from './dates'
 import { reminderDate } from './reminders'
 import { currentUid } from './sync'
 
@@ -22,7 +22,7 @@ type EventBody = Record<string, unknown>
 type SyncMap = Record<string, string> // eventId → impronta del contenuto
 
 /** Gli id evento Google accettano solo [a-v0-9]: gli UUID esadecimali vanno bene */
-const eventId = (prefix: 'vis' | 'rem', id: string) => prefix + id.replace(/-/g, '').toLowerCase()
+const eventId = (prefix: 'vis' | 'rem' | 'ric', id: string) => prefix + id.replace(/-/g, '').toLowerCase()
 
 function visitEvent(v: Visit): EventBody {
   const description = [v.vet && `Veterinario: ${v.vet}`, v.notes].filter(Boolean).join('\n\n')
@@ -60,6 +60,18 @@ function reminderEvent(m: Medication, date: string): EventBody {
   }
 }
 
+function boosterEvent(v: Visit, date: string): EventBody {
+  return {
+    summary: `💉 Richiamo: ${v.type}`,
+    description: `Richiamo previsto (ultima volta il ${v.date.split('-').reverse().join('/')}).${v.vet ? `\nVeterinario: ${v.vet}` : ''}`,
+    start: { dateTime: `${date}T09:00:00`, timeZone: TZ },
+    end: { dateTime: `${date}T09:15:00`, timeZone: TZ },
+    // avviso una settimana prima (per prenotare) e il giorno stesso
+    reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 7 * 24 * 60 }, { method: 'popup', minutes: 0 }] },
+    status: 'confirmed',
+  }
+}
+
 /** Calcola gli eventi che dovrebbero esistere nel calendario */
 async function desiredEvents(map: SyncMap): Promise<Map<string, EventBody>> {
   const today = todayISO()
@@ -68,6 +80,11 @@ async function desiredEvents(map: SyncMap): Promise<Map<string, EventBody>> {
     const id = eventId('vis', v.id)
     // le visite passate restano in calendario solo se erano già state inserite
     if (v.date >= today || id in map) out.set(id, visitEvent(v))
+    if (v.reminder) {
+      const rid = eventId('ric', v.id)
+      const date = addInterval(v.date, v.reminder.amount, v.reminder.unit)
+      if (!v.reminder.done || (rid in map && date <= today)) out.set(rid, boosterEvent(v, date))
+    }
   }
   for (const m of await db.medications.toArray()) {
     if (!m.reminder || !m.endDate) continue
