@@ -16,7 +16,7 @@ export function ReminderCard({ r, compact }: { r: DueReminder; compact?: boolean
           </div>
         </div>
       </div>
-      {!compact && (
+      {!compact && r.kind === 'med' && (
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Button variant="ghost" className="py-2 text-sm" onClick={() => archiveReminder(r)}>
             Archivia avviso
