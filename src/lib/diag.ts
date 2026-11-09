@@ -106,15 +106,25 @@ export async function resetLocalData() {
   await terminate(fs).catch(() => undefined)
   const names = ((await indexedDB.databases?.()) ?? []).map((d) => d.name).filter((n): n is string => !!n)
   if (!names.includes('tokyo')) names.push('tokyo')
+  let blocked = false
   await Promise.all(
     names.map(
       (n) =>
         new Promise<void>((resolve) => {
           const req = indexedDB.deleteDatabase(n)
-          req.onsuccess = req.onerror = req.onblocked = () => resolve()
+          req.onsuccess = req.onerror = () => resolve()
+          req.onblocked = () => {
+            blocked = true
+            resolve()
+          }
         }),
     ),
   )
+  if (blocked)
+    alert(
+      'Il database è ancora usato da un’altra copia dell’app (una scheda di Chrome o l’app installata). ' +
+        'Chiudi tutte le copie dalle app recenti (o forza l’arresto di Chrome) e riapri l’app.',
+    )
   try {
     Object.keys(localStorage)
       .filter((k) => k.startsWith('tokyo-uploaded-'))

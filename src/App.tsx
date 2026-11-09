@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { db } from './db'
 import { useRoute } from './lib/router'
 import { useUser } from './lib/firebase'
 import { startSync, stopSync } from './lib/sync'
@@ -22,7 +23,15 @@ export default function App() {
   const user = useUser()
   const uid = user?.uid
 
+  const visible = useVisible()
+
   useEffect(() => {
+    // in background l'app libera il database: Android può "congelare" la pagina e una
+    // copia congelata con una scrittura in corso bloccherebbe tutte le altre
+    if (!visible) {
+      db.close({ disableAutoOpen: false })
+      return
+    }
     if (!uid || syncDisabled()) return
     startSync(uid).catch((e) => console.error('avvio sync', e))
     startGoogleSync()
@@ -30,7 +39,7 @@ export default function App() {
       stopSync()
       stopGoogleSync()
     }
-  }, [uid])
+  }, [uid, visible])
 
   if (user === undefined) return <Loading />
   if (user === null) return <LoginPage />
@@ -72,4 +81,21 @@ function Main() {
       {!id && section !== 'riepilogo' && <BottomNav current={tab} />}
     </>
   )
+}
+
+function useVisible() {
+  const [visible, setVisible] = useState(() => document.visibilityState !== 'hidden')
+  useEffect(() => {
+    const on = () => setVisible(document.visibilityState !== 'hidden')
+    const hide = () => setVisible(false)
+    document.addEventListener('visibilitychange', on)
+    window.addEventListener('pagehide', hide)
+    window.addEventListener('pageshow', on)
+    return () => {
+      document.removeEventListener('visibilitychange', on)
+      window.removeEventListener('pagehide', hide)
+      window.removeEventListener('pageshow', on)
+    }
+  }, [])
+  return visible
 }
