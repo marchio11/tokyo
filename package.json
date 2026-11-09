@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "npm run build && node scripts/build-worker.mjs && wrangler deploy"
   },
   "dependencies": {
     "dexie": "^4.4.7",

@@ -1,8 +1,9 @@
 {
-  // Pubblicazione su Cloudflare Workers: vengono serviti i file statici dell'app (cartella dist)
+  // Pubblicazione su Cloudflare Workers: `npm run deploy`
+  // worker/index.js viene generato da scripts/build-worker.mjs e contiene i file dell'app
   "name": "tokyo",
+  "main": "worker/index.js",
   "compatibility_date": "2026-11-01",
-  "assets": {
-    "directory": "./dist"
-  }
+  "workers_dev": true,
+  "preview_urls": false
 }
