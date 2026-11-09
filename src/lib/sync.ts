@@ -30,14 +30,29 @@ function toRemote(c: Coll, obj: Record<string, unknown>) {
 
 const isRemote = (t: Transaction | undefined) => !!(t as unknown as Record<string, unknown> | undefined)?.[REMOTE]
 
+/**
+ * Le chiamate a Firestore partono fuori dalla transazione di Dexie (setTimeout):
+ * mescolare le due librerie nella stessa transazione può bloccare il database locale.
+ */
+function outsideTransaction(fn: () => void) {
+  Dexie.ignoreTransaction(() => setTimeout(fn, 0))
+}
+
 function push(c: Coll, obj: Record<string, unknown> & { id: string }) {
   if (!uid) return
-  setDoc(ref(c, obj.id), toRemote(c, obj)).catch((e) => console.error('sync push', c, e))
+  const data = toRemote(c, { ...obj })
+  outsideTransaction(() => {
+    if (!uid) return
+    setDoc(ref(c, obj.id), data).catch((e) => console.error('Invio al cloud non riuscito', c, e))
+  })
 }
 
 function pushDelete(c: Coll, id: string) {
   if (!uid) return
-  deleteDoc(ref(c, id)).catch((e) => console.error('sync delete', c, e))
+  outsideTransaction(() => {
+    if (!uid) return
+    deleteDoc(ref(c, id)).catch((e) => console.error('Eliminazione nel cloud non riuscita', c, e))
+  })
 }
 
 function installHooks() {
@@ -135,9 +150,9 @@ export async function startSync(userId: string) {
           // il primo snapshot servito solo dalla cache locale potrebbe essere incompleto
           const isFirst = first && !snap.metadata.fromCache
           if (!snap.metadata.fromCache) first = false
-          applyRemote(c, snap, isFirst).catch((e) => console.error('sync apply', c, e))
+          applyRemote(c, snap, isFirst).catch((e) => console.error('Aggiornamento dal cloud non riuscito', c, e))
         },
-        (e) => console.error('sync listen', c, e),
+        (e) => console.error('Lettura dal cloud non riuscita', c, e),
       ),
     )
   }

@@ -58,7 +58,7 @@ export function Dashboard() {
   const nextVisit = visits.find((v) => v.date > today)
 
   return (
-    <div className="mx-auto max-w-2xl px-4 pt-[max(env(safe-area-inset-top),16px)] pb-28">
+    <div className="mx-auto max-w-2xl px-4 pt-[max(env(safe-area-inset-top),16px)] pb-44">
       <header className="mb-4 flex items-center gap-3 py-2">
         <img src="icon-192.png" alt="" className="size-12 rounded-2xl" />
         <div>

@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+import { useErrors } from '../lib/diag'
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 import { goBack, navigate } from '../lib/router'
 
@@ -13,7 +15,7 @@ export function Page({
   children: ReactNode
 }) {
   return (
-    <div className="mx-auto max-w-2xl px-4 pb-28">
+    <div className="mx-auto max-w-2xl px-4 pb-44">
       <header className="sticky top-0 z-20 -mx-4 mb-4 flex items-center gap-2 bg-bg/90 px-4 pt-[max(env(safe-area-inset-top),12px)] pb-3 backdrop-blur">
         {back !== undefined && (
           <button
@@ -161,5 +163,29 @@ export function FormActions({ onSave, onDelete, canSave = true }: { onSave: () =
 }
 
 export function Loading() {
-  return <div className="p-8 text-center text-muted">Caricamento…</div>
+  // se il caricamento dura troppo mostra gli errori raccolti e un modo per ripartire
+  const [slow, setSlow] = useState(false)
+  const errors = useErrors()
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 5000)
+    return () => clearTimeout(t)
+  }, [])
+  return (
+    <div className="p-8 text-center text-muted">
+      Caricamento…
+      {slow && (
+        <div className="mt-6 space-y-3 text-left text-sm">
+          <p>Ci sta mettendo più del previsto.</p>
+          {errors.length > 0 && (
+            <pre className="max-h-64 overflow-auto rounded-xl bg-card p-3 text-xs whitespace-pre-wrap text-red-300 select-text">
+              {errors.join('\n')}
+            </pre>
+          )}
+          <Button className="w-full" onClick={() => location.reload()}>
+            Ricarica l’app
+          </Button>
+        </div>
+      )}
+    </div>
+  )
 }

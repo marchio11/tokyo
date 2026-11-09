@@ -7,6 +7,7 @@ import { navigate } from '../lib/router'
 import { auth, signOut } from '../lib/firebase'
 import { runGoogleSync } from '../lib/cloud'
 import { useStatus } from '../lib/status'
+import { useErrors } from '../lib/diag'
 import { Button, Card, Field, Input, Loading, Page, SectionTitle, TextArea } from '../components/ui'
 
 export function ProfilePage() {
@@ -182,6 +183,7 @@ function BackupCard() {
 
 function AccountCard() {
   const s = useStatus()
+  const errors = useErrors()
   const user = auth.currentUser
   const state = s.busy
     ? '⏳ Sincronizzazione in corso…'
@@ -204,6 +206,14 @@ function AccountCard() {
         </div>
       </div>
       <p className="text-sm text-muted">{state}</p>
+      {errors.length > 0 && (
+        <details className="text-sm">
+          <summary className="text-red-300">⚠️ {errors.length} errori recenti (tocca per vederli)</summary>
+          <pre className="mt-2 max-h-64 overflow-auto rounded-xl bg-bg p-3 text-xs whitespace-pre-wrap text-red-300 select-text">
+            {errors.join('\n')}
+          </pre>
+        </details>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <Button variant="ghost" onClick={() => runGoogleSync(true)} disabled={s.busy}>
           🔄 Sincronizza
