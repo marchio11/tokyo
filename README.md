@@ -14,7 +14,15 @@ visite, malattie, farmaci e integratori, alimentazione, peso e un calendario ria
 - **Calendario** stile Garmin Connect con barre colorate per tipo di evento.
 - **Backup** esportabile/ripristinabile (allegati inclusi).
 
-I dati sono salvati sul dispositivo (IndexedDB). La sincronizzazione con Google Drive è il prossimo passo.
+I dati sono sincronizzati con **Firebase Firestore** (con copia locale per l'uso offline), gli allegati vanno nella cartella "Tokyo" di **Google Drive** e visite e promemoria compaiono nel calendario Google **"Tokyo"**.
+
+## Pubblicazione
+
+L'app è un Worker Cloudflare (`wrangler.jsonc`) che serve i file di `dist/`:
+https://tokyo.andrea-marchionni11.workers.dev
+
+Ogni push su `main` viene pubblicato in automatico da **Cloudflare Workers Builds**
+(build: `npm run build`, deploy: `npx wrangler deploy`).
 
 ## Sviluppo
 
@@ -24,4 +32,4 @@ npm run dev      # server di sviluppo
 npm run build    # build di produzione in dist/
 ```
 
-Stack: React + TypeScript + Vite, Tailwind CSS, Dexie (IndexedDB), vite-plugin-pwa.
+Stack: React + TypeScript + Vite, Tailwind CSS, Dexie (IndexedDB), Firebase (Auth + Firestore), API Google Drive e Calendar, vite-plugin-pwa.

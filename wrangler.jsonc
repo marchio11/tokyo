@@ -1,9 +1,12 @@
 {
-  // Pubblicazione su Cloudflare Workers: `npm run deploy`
-  // worker/index.js viene generato da scripts/build-worker.mjs e contiene i file dell'app
+  // Worker Cloudflare "tokyo": serve i file statici dell'app generati in ./dist
+  // Pubblicazione automatica: Cloudflare Workers Builds a ogni push su main
   "name": "tokyo",
-  "main": "worker/index.js",
   "compatibility_date": "2026-11-01",
   "workers_dev": true,
-  "preview_urls": false
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
 }
