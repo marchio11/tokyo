@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, newId, type Attachment } from '../db'
+import { downloadAttachment } from '../lib/drive'
+import { currentToken, renewToken } from '../lib/firebase'
 
 interface Item {
   id: string
   name: string
   type: string
   size: number
-  blob: Blob
+  blob?: Blob
+  driveId?: string
   pending?: boolean
 }
 
@@ -78,18 +81,48 @@ export function AttachmentsField({ state }: { state: ReturnType<typeof useAttach
 /** Elenco allegati in sola lettura (o con rimozione) */
 export function AttachmentList({ items, onRemove }: { items: Item[]; onRemove?: (id: string) => void }) {
   const [viewer, setViewer] = useState<Item | null>(null)
+  const [loading, setLoading] = useState<string | null>(null)
   if (!items.length) return null
+
+  const open = async (a: Item) => {
+    let blob = a.blob
+    if (!blob) {
+      // non ancora sul dispositivo: si scarica da Google Drive
+      setLoading(a.id)
+      try {
+        if (!currentToken()) await renewToken()
+        blob = await downloadAttachment(a.id)
+      } catch (e) {
+        alert(`Impossibile aprire l’allegato: ${(e as Error).message}`)
+        return
+      } finally {
+        setLoading(null)
+      }
+    }
+    const item = { ...a, blob }
+    if (a.type.startsWith('image/')) return setViewer(item)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.target = '_blank'
+    link.download = a.name
+    link.click()
+    setTimeout(() => URL.revokeObjectURL(url), 60_000)
+  }
+
   return (
     <>
       <div className="grid grid-cols-3 gap-2">
         {items.map((a) => (
           <div key={a.id} className="relative">
-            <button type="button" onClick={() => openItem(a, setViewer)} className="block w-full overflow-hidden rounded-xl bg-card-2">
-              {a.type.startsWith('image/') ? (
+            <button type="button" onClick={() => open(a)} className="block w-full overflow-hidden rounded-xl bg-card-2">
+              {a.type.startsWith('image/') && a.blob ? (
                 <BlobImage blob={a.blob} className="aspect-square w-full object-cover" />
               ) : (
                 <div className="flex aspect-square flex-col items-center justify-center gap-1 p-2">
-                  <span className="text-3xl">{a.type === 'application/pdf' ? '📄' : '📁'}</span>
+                  <span className="text-3xl">
+                    {loading === a.id ? '⏳' : !a.blob ? '☁️' : a.type === 'application/pdf' ? '📄' : '📁'}
+                  </span>
                   <span className="line-clamp-2 text-center text-[11px] break-all text-muted">{a.name}</span>
                 </div>
               )}
@@ -107,7 +140,7 @@ export function AttachmentList({ items, onRemove }: { items: Item[]; onRemove?: 
           </div>
         ))}
       </div>
-      {viewer && (
+      {viewer?.blob && (
         <div className="fixed inset-0 z-50 flex flex-col bg-black/95" onClick={() => setViewer(null)}>
           <div className="flex items-center justify-between p-4 pt-[max(env(safe-area-inset-top),16px)]">
             <span className="truncate text-sm text-muted">{viewer.name}</span>
@@ -122,17 +155,6 @@ export function AttachmentList({ items, onRemove }: { items: Item[]; onRemove?: 
       )}
     </>
   )
-}
-
-function openItem(a: Item, setViewer: (i: Item) => void) {
-  if (a.type.startsWith('image/')) return setViewer(a)
-  const url = URL.createObjectURL(a.blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.target = '_blank'
-  link.download = a.name
-  link.click()
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
 
 function BlobImage({ blob, className }: { blob: Blob; className?: string }) {

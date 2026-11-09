@@ -6,6 +6,8 @@ export type ISODate = string
 export interface Visit {
   id: string
   date: ISODate
+  /** ora facoltativa 'HH:MM' (usata per l'evento nel calendario) */
+  time?: string
   type: string
   vet?: string
   notes?: string
@@ -76,7 +78,10 @@ export interface Attachment {
   name: string
   type: string
   size: number
-  blob: Blob
+  /** contenuto in cache sul dispositivo (assente se non ancora scaricato da Drive) */
+  blob?: Blob
+  /** id del file su Google Drive, una volta caricato */
+  driveId?: string
   createdAt: number
 }
 

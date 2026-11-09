@@ -1,4 +1,11 @@
+import { useEffect } from 'react'
 import { useRoute } from './lib/router'
+import { useUser } from './lib/firebase'
+import { startSync, stopSync } from './lib/sync'
+import { startGoogleSync, stopGoogleSync } from './lib/cloud'
+import { SyncBanner } from './components/SyncBanner'
+import { LoginPage } from './pages/Login'
+import { Loading } from './components/ui'
 import { BottomNav } from './components/BottomNav'
 import { Dashboard } from './pages/Dashboard'
 import { VisitsPage } from './pages/Visits'
@@ -11,6 +18,25 @@ import { ProfilePage } from './pages/Profile'
 import { ReportPage } from './pages/Report'
 
 export default function App() {
+  const user = useUser()
+  const uid = user?.uid
+
+  useEffect(() => {
+    if (!uid) return
+    startSync(uid).catch((e) => console.error('avvio sync', e))
+    startGoogleSync()
+    return () => {
+      stopSync()
+      stopGoogleSync()
+    }
+  }, [uid])
+
+  if (user === undefined) return <Loading />
+  if (user === null) return <LoginPage />
+  return <Main />
+}
+
+function Main() {
   const [section = '', ...rest] = useRoute()
   const id = rest[0]
 
@@ -32,6 +58,7 @@ export default function App() {
   return (
     <>
       {page}
+      <SyncBanner />
       {/* nei moduli di inserimento/modifica la barra viene nascosta */}
       {!id && section !== 'riepilogo' && <BottomNav current={tab} />}
     </>

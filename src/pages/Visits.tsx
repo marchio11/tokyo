@@ -42,6 +42,7 @@ function VisitRow({ v, upcoming }: { v: Visit; upcoming?: boolean }) {
           </div>
           <div className="text-sm text-muted">
             {formatDate(v.date)}
+            {v.time ? ` · ore ${v.time}` : ''}
             {v.vet ? ` · ${v.vet}` : ''}
             {v.attachmentIds.length ? ` · 📎 ${v.attachmentIds.length}` : ''}
           </div>
@@ -61,6 +62,7 @@ function VisitForm({ id }: { id: string }) {
 
 function VisitFormInner({ rec, types }: { rec: Visit | null; types: string[] }) {
   const [date, setDate] = useState(rec?.date ?? todayISO())
+  const [time, setTime] = useState(rec?.time ?? '')
   const [type, setType] = useState(rec?.type ?? '')
   const [vet, setVet] = useState(rec?.vet ?? '')
   const [notes, setNotes] = useState(rec?.notes ?? '')
@@ -72,6 +74,7 @@ function VisitFormInner({ rec, types }: { rec: Visit | null; types: string[] }) 
       id: rec?.id ?? newId(),
       createdAt: rec?.createdAt ?? Date.now(),
       date,
+      time: time || undefined,
       type: type.trim(),
       vet: vet.trim() || undefined,
       notes: notes.trim() || undefined,
@@ -86,9 +89,17 @@ function VisitFormInner({ rec, types }: { rec: Visit | null; types: string[] }) 
         <Field label="Tipo di visita">
           <ComboInput value={type} onChange={setType} options={types} placeholder="es. Controllo" />
         </Field>
-        <Field label="Data" hint="Puoi inserire anche una data futura per una visita in programma">
-          <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-        </Field>
+        <div className="grid grid-cols-[1fr_auto] gap-3">
+          <Field label="Data">
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </Field>
+          <Field label="Ora">
+            <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-32" />
+          </Field>
+        </div>
+        <p className="-mt-2 text-xs text-muted">
+          Puoi inserire anche una visita futura: comparirà nel calendario Google “Tokyo”. L’ora è facoltativa.
+        </p>
         <Field label="Veterinario / clinica">
           <Input value={vet} onChange={(e) => setVet(e.target.value)} placeholder="facoltativo" />
         </Field>
