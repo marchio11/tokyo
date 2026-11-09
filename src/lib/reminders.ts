@@ -56,8 +56,8 @@ export function allReminders(meds: Medication[], visits: Visit[] = []): DueRemin
         icon: '💉',
         dueDate,
         daysLeft: daysBetween(today, dueDate),
-        startHref: `/visite/nuovo/da/${v.id}`,
-        startLabel: 'Registra visita',
+        startHref: `/visite/${v.id}`,
+        startLabel: '',
       })
   }
   return out.sort((a, b) => a.dueDate.localeCompare(b.dueDate))

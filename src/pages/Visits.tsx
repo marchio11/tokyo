@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, deleteWithAttachments, getProfile, newId, type IntervalUnit, type Visit } from '../db'
-import { addInterval, formatDate, todayISO } from '../lib/dates'
+import { addInterval, daysBetween, formatDate, todayISO } from '../lib/dates'
 import { allReminders, visitReminderDate } from '../lib/reminders'
-import { ReminderCard } from '../components/ReminderCard'
 import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
 import { AttachmentsField, useAttachments } from '../components/Attachments'
@@ -11,39 +10,75 @@ import { Card, Empty, Fab, Field, FormActions, Input, Loading, Page, Pill, Secti
 import { ComboInput } from '../components/ComboInput'
 
 export function VisitsPage({ parts }: { parts: string[] }) {
-  // /visite · /visite/nuovo · /visite/nuovo/da/<id> (richiamo) · /visite/<id>
-  const [id, , fromId] = parts
-  return id ? <VisitForm id={id} fromId={fromId} /> : <VisitList />
+  // /visite · /visite/nuovo · /visite/<id>
+  const [id] = parts
+  return id ? <VisitForm id={id} /> : <VisitList />
 }
 
 function VisitList() {
   const visits = useLiveQuery(() => db.visits.orderBy('date').reverse().toArray())
   if (!visits) return <Loading />
   const today = todayISO()
-  const upcoming = visits.filter((v) => v.date > today).reverse()
-  const past = visits.filter((v) => v.date <= today)
-  const reminders = allReminders([], visits)
+  const upcoming = visits.filter((v) => v.date > today)
+
+  // "In evidenza": visite in programma e richiami in scadenza, in ordine di data
+  const highlights = [
+    ...upcoming.map((v) => ({
+      key: `p${v.id}`,
+      date: v.date,
+      icon: '🩺',
+      title: v.type,
+      sub: `in programma${v.time ? ` alle ${v.time}` : ''}`,
+      href: `/visite/${v.id}`,
+    })),
+    ...allReminders([], visits).map((r) => ({
+      key: r.key,
+      date: r.dueDate,
+      icon: '💉',
+      title: r.title.replace(/^Richiamo: /, ''),
+      sub: 'richiamo',
+      href: `/visite/${r.id}`,
+    })),
+  ].sort((a, b) => a.date.localeCompare(b.date))
+
   return (
     <Page title="Visite mediche" back="/">
       {!visits.length && <Empty>Nessuna visita registrata.<br />Tocca + per aggiungerne una.</Empty>}
-      {reminders.length > 0 && (
+      {highlights.length > 0 && (
         <>
-          <SectionTitle>Prossimi richiami</SectionTitle>
+          <SectionTitle>In evidenza</SectionTitle>
           <div className="space-y-2">
-            {reminders.map((r) => (
-              <ReminderCard key={r.key} r={r} />
+            {highlights.map((h) => (
+                <Card key={h.key} onClick={() => navigate(h.href)}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{h.icon}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{h.title}</div>
+                      <div className="text-sm text-muted">{h.sub}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-medium text-shiba">{formatDate(h.date)}</div>
+                      <div className="text-xs text-muted">{daysLabel(daysBetween(today, h.date))}</div>
+                    </div>
+                  </div>
+                </Card>
             ))}
           </div>
         </>
       )}
-      {upcoming.length > 0 && <SectionTitle>In programma</SectionTitle>}
-      <div className="space-y-2">{upcoming.map((v) => <VisitRow key={v.id} v={v} upcoming />)}</div>
-      {past.length > 0 && upcoming.length > 0 && <SectionTitle>Passate</SectionTitle>}
-      <div className="space-y-2">{past.map((v) => <VisitRow key={v.id} v={v} />)}</div>
+      {visits.length > 0 && <SectionTitle>Tutte le visite</SectionTitle>}
+      <div className="space-y-2">
+        {visits.map((v) => (
+          <VisitRow key={v.id} v={v} upcoming={v.date > today} />
+        ))}
+      </div>
       <Fab to="/visite/nuovo" />
     </Page>
   )
 }
+
+const daysLabel = (n: number) =>
+  n < 0 ? `scaduto da ${-n} ${n === -1 ? 'giorno' : 'giorni'}` : n === 0 ? 'oggi' : n === 1 ? 'domani' : `tra ${n} giorni`
 
 function VisitRow({ v, upcoming }: { v: Visit; upcoming?: boolean }) {
   return (
@@ -71,33 +106,47 @@ function VisitRow({ v, upcoming }: { v: Visit; upcoming?: boolean }) {
   )
 }
 
-function VisitForm({ id, fromId }: { id: string; fromId?: string }) {
+function VisitForm({ id }: { id: string }) {
   const rec = useRecord(db.visits, id)
-  const template = useRecord(db.visits, fromId)
   const profile = useLiveQuery(getProfile)
-  if (rec === undefined || template === undefined || !profile) return <Loading />
-  return <VisitFormInner rec={rec} template={template} types={profile.visitTypes} />
+  const all = useLiveQuery(() => db.visits.toArray())
+  if (rec === undefined || !profile || !all) return <Loading />
+  return <VisitFormInner rec={rec} types={profile.visitTypes} all={all} />
 }
 
-function VisitFormInner({ rec, template, types }: { rec: Visit | null; template: Visit | null; types: string[] }) {
-  const src = rec ?? template
-  // registrando il richiamo, la data proposta è quella prevista dal promemoria
-  const templateDue = template?.reminder ? addInterval(template.date, template.reminder.amount, template.reminder.unit) : undefined
-  const [date, setDate] = useState(rec?.date ?? templateDue ?? presetDate(todayISO()))
+function VisitFormInner({ rec, types, all }: { rec: Visit | null; types: string[]; all: Visit[] }) {
+  const [date, setDate] = useState(rec?.date ?? presetDate(todayISO()))
   const [time, setTime] = useState(rec?.time ?? '')
-  const [type, setType] = useState(src?.type ?? '')
-  const [vet, setVet] = useState(src?.vet ?? '')
+  const [type, setType] = useState(rec?.type ?? '')
+  const [vet, setVet] = useState(rec?.vet ?? '')
   const [notes, setNotes] = useState(rec?.notes ?? '')
-  const [remOn, setRemOn] = useState(!!src?.reminder)
-  const [remAmount, setRemAmount] = useState(String(src?.reminder?.amount ?? 1))
-  const [remUnit, setRemUnit] = useState<IntervalUnit>(src?.reminder?.unit ?? 'anni')
+  const [remOn, setRemOn] = useState(!!rec?.reminder)
+  const [remAmount, setRemAmount] = useState(String(rec?.reminder?.amount ?? 1))
+  const [remUnit, setRemUnit] = useState<IntervalUnit>(rec?.reminder?.unit ?? 'anni')
   const amount = Math.max(1, parseInt(remAmount) || 0)
   const att = useAttachments(rec?.attachmentIds ?? [])
 
+  const sameType = (v: Visit, t: string) => v.type.trim().toLowerCase() === t.trim().toLowerCase()
+
+  /** Scegliendo un tipo che aveva già un richiamo (es. "Vaccino"), il promemoria si attiva con lo stesso intervallo */
+  const changeType = (t: string) => {
+    setType(t)
+    if (rec || remOn) return
+    const prev = all
+      .filter((v) => v.reminder && sameType(v, t))
+      .sort((a, b) => b.date.localeCompare(a.date))[0]
+    if (prev?.reminder) {
+      setRemOn(true)
+      setRemAmount(String(prev.reminder.amount))
+      setRemUnit(prev.reminder.unit)
+    }
+  }
+
   const save = async () => {
     const attachmentIds = await att.commit()
+    const id = rec?.id ?? newId()
     await db.visits.put({
-      id: rec?.id ?? newId(),
+      id,
       createdAt: rec?.createdAt ?? Date.now(),
       date,
       time: time || undefined,
@@ -110,16 +159,21 @@ function VisitFormInner({ rec, template, types }: { rec: Visit | null; template:
         : undefined,
       attachmentIds,
     })
-    // registrata la nuova visita, il promemoria della precedente è completato
-    if (template?.reminder) await db.visits.update(template.id, { reminder: { ...template.reminder, done: true } })
+    // una visita dello stesso tipo fatta in prossimità del richiamo (da 3 mesi prima in poi)
+    // completa il promemoria della visita precedente: non resta un avviso "scaduto"
+    for (const v of all) {
+      if (v.id === id || !sameType(v, type) || !v.reminder || v.reminder.done || v.date >= date) continue
+      const due = addInterval(v.date, v.reminder.amount, v.reminder.unit)
+      if (date >= addInterval(due, -3, 'mesi')) await db.visits.update(v.id, { reminder: { ...v.reminder, done: true } })
+    }
     goBack('/visite')
   }
 
   return (
-    <Page title={rec ? 'Modifica visita' : template ? 'Richiamo' : 'Nuova visita'} back="/visite">
+    <Page title={rec ? 'Modifica visita' : 'Nuova visita'} back="/visite">
       <div className="space-y-4">
         <Field label="Tipo di visita">
-          <ComboInput value={type} onChange={setType} options={types} placeholder="es. Controllo" />
+          <ComboInput value={type} onChange={changeType} options={types} placeholder="es. Controllo" />
         </Field>
         <div className="grid grid-cols-[1fr_auto] gap-3">
           <Field label="Data">
