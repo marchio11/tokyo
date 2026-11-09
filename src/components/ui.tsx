@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useErrors } from '../lib/diag'
+import { resetLocalData, runDiagnostics, setSyncDisabled, syncDisabled, useErrors } from '../lib/diag'
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 import { goBack, navigate } from '../lib/router'
 
@@ -165,9 +165,13 @@ export function FormActions({ onSave, onDelete, canSave = true }: { onSave: () =
 export function Loading() {
   // se il caricamento dura troppo mostra gli errori raccolti e un modo per ripartire
   const [slow, setSlow] = useState(false)
+  const [report, setReport] = useState<string[] | null>(null)
   const errors = useErrors()
   useEffect(() => {
-    const t = setTimeout(() => setSlow(true), 5000)
+    const t = setTimeout(() => {
+      setSlow(true)
+      runDiagnostics(setReport).catch((e) => setReport([`Diagnosi non riuscita: ${e}`]))
+    }, 5000)
     return () => clearTimeout(t)
   }, [])
   return (
@@ -176,13 +180,26 @@ export function Loading() {
       {slow && (
         <div className="mt-6 space-y-3 text-left text-sm">
           <p>Ci sta mettendo più del previsto.</p>
-          {errors.length > 0 && (
-            <pre className="max-h-64 overflow-auto rounded-xl bg-card p-3 text-xs whitespace-pre-wrap text-red-300 select-text">
-              {errors.join('\n')}
-            </pre>
-          )}
+          <pre className="max-h-80 overflow-auto rounded-xl bg-card p-3 text-xs whitespace-pre-wrap text-[#c9c9d1] select-text">
+            {report ? report.join('\n') : 'Diagnosi in corso…'}
+            {errors.length > 0 && '\n\nErrori:\n' + errors.join('\n')}
+          </pre>
+          <p className="text-xs">Fai uno screenshot di questo riquadro e mandalo a Claude.</p>
           <Button className="w-full" onClick={() => location.reload()}>
             Ricarica l’app
+          </Button>
+          <Button variant="ghost" className="w-full" onClick={() => setSyncDisabled(!syncDisabled())}>
+            {syncDisabled() ? 'Riattiva la sincronizzazione' : 'Avvia senza sincronizzazione (prova)'}
+          </Button>
+          <Button
+            variant="danger"
+            className="w-full"
+            onClick={() =>
+              confirm('Svuoto i dati salvati su questo telefono e li riscarico dal cloud. Eventuali dati mai sincronizzati andranno persi. Procedo?') &&
+              resetLocalData()
+            }
+          >
+            Ripara: svuota i dati locali
           </Button>
         </div>
       )}

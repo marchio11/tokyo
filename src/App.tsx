@@ -4,6 +4,7 @@ import { useUser } from './lib/firebase'
 import { startSync, stopSync } from './lib/sync'
 import { startGoogleSync, stopGoogleSync } from './lib/cloud'
 import { SyncBanner } from './components/SyncBanner'
+import { setSyncDisabled, syncDisabled } from './lib/diag'
 import { LoginPage } from './pages/Login'
 import { Loading } from './components/ui'
 import { BottomNav } from './components/BottomNav'
@@ -22,7 +23,7 @@ export default function App() {
   const uid = user?.uid
 
   useEffect(() => {
-    if (!uid) return
+    if (!uid || syncDisabled()) return
     startSync(uid).catch((e) => console.error('avvio sync', e))
     startGoogleSync()
     return () => {
@@ -59,6 +60,14 @@ function Main() {
     <>
       {page}
       <SyncBanner />
+      {syncDisabled() && (
+        <button
+          onClick={() => setSyncDisabled(false)}
+          className="fixed top-[max(env(safe-area-inset-top),8px)] right-3 z-50 rounded-full bg-red-500/90 px-3 py-1 text-xs text-white"
+        >
+          Sincronizzazione disattivata · riattiva
+        </button>
+      )}
       {/* nei moduli di inserimento/modifica la barra viene nascosta */}
       {!id && section !== 'riepilogo' && <BottomNav current={tab} />}
     </>
