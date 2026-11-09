@@ -24,7 +24,7 @@ function Bar({ children, onClick }: { children: React.ReactNode; onClick: () => 
   return (
     <button
       onClick={onClick}
-      className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+76px)] z-30 mx-auto max-w-xl rounded-xl border border-shiba/40 bg-[#2a1d10] px-4 py-3 text-left text-sm text-[#ffd2a6] shadow-lg"
+      className="fixed bottom-[calc(env(safe-area-inset-bottom)+80px)] left-3 right-[88px] z-30 max-w-xl rounded-xl border border-shiba/40 bg-[#2a1d10] px-4 py-3 text-left text-sm text-[#ffd2a6] shadow-lg"
     >
       {children}
     </button>
