@@ -41,15 +41,18 @@ export function VisitIllness({
   episodes,
   suggestions,
   visitDate,
+  linkOnly = false,
 }: {
   value: IllnessDraft
   onChange: (d: IllnessDraft) => void
   episodes: Illness[]
   suggestions: string[]
   visitDate: string
+  /** solo scelta di un episodio già registrato (visite di altro tipo, es. ecografia) */
+  linkOnly?: boolean
 }) {
-  const [mode, setMode] = useState<'new' | 'existing'>(value.id ? 'existing' : 'new')
-  const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState<'new' | 'existing'>(linkOnly || value.id ? 'existing' : 'new')
+  const [open, setOpen] = useState(linkOnly && !value.id)
   const [filter, setFilter] = useState('')
   const set = <K extends keyof IllnessDraft>(k: K, v: IllnessDraft[K]) => onChange({ ...value, [k]: v })
   const validEnd = !value.endDate || value.endDate >= value.startDate
@@ -65,15 +68,19 @@ export function VisitIllness({
     setFilter('')
   }
   // in "Già registrato" i campi compaiono solo dopo aver scelto l'episodio
-  const showFields = mode === 'new' || !!selected
+  const showFields = !linkOnly && (mode === 'new' || !!selected)
+
+  if (linkOnly && episodes.length === 0) return <p className="text-sm text-muted">Non ci sono ancora episodi di malattia registrati.</p>
 
   return (
-    <Card className="space-y-4 border border-ev-illness/40 bg-transparent">
-      <div>
-        <span className="block font-medium">🤒 Malattia</span>
-        <span className="block text-xs text-muted">L’episodio comparirà anche nella sezione Malattie, collegato a questa visita.</span>
-      </div>
-      {episodes.length > 0 && (
+    <Card className={linkOnly ? 'space-y-3 bg-transparent p-0' : 'space-y-4 border border-ev-illness/40 bg-transparent'}>
+      {!linkOnly && (
+        <div>
+          <span className="block font-medium">🤒 Malattia</span>
+          <span className="block text-xs text-muted">L’episodio comparirà anche nella sezione Malattie, collegato a questa visita.</span>
+        </div>
+      )}
+      {!linkOnly && episodes.length > 0 && (
         <Segmented
           value={mode}
           onChange={(m) => {
@@ -138,7 +145,11 @@ export function VisitIllness({
             </div>
           )}
           {selected && !open && (
-            <p className="pt-2 text-xs text-muted">Puoi aggiornare qui sotto i dati dell’episodio scelto (ad esempio la data di guarigione).</p>
+            <p className="pt-2 text-xs text-muted">
+              {linkOnly
+                ? 'La visita comparirà tra le visite di questo episodio.'
+                : 'Puoi aggiornare qui sotto i dati dell’episodio scelto (ad esempio la data di guarigione).'}
+            </p>
           )}
         </div>
       )}
