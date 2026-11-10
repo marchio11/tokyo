@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '../db'
-import { formatDate, periodLabel } from '../lib/dates'
+import { formatDate } from '../lib/dates'
 import { navigate } from '../lib/router'
 
 /** "🩺 dalla visita del …": rimanda alla visita da cui è nato il record */
@@ -23,31 +23,43 @@ export function FromVisit({ visitId, label = 'Prescritto nella visita' }: { visi
   )
 }
 
-/** Storia di un episodio: visite collegate e farmaci prescritti in quelle visite */
+/** "🤒 per … del …": rimanda all'episodio per cui è stato dato il farmaco */
+export function ForIllness({ illnessId }: { illnessId?: string }) {
+  const i = useLiveQuery(() => (illnessId ? db.illnesses.get(illnessId) : undefined), [illnessId])
+  if (!i) return null
+  return (
+    <span
+      role="link"
+      tabIndex={0}
+      onClick={(e) => {
+        e.stopPropagation()
+        navigate(`/malattie/${i.id}`)
+      }}
+      className="inline-flex cursor-pointer items-center gap-1 text-sm text-ev-illness"
+    >
+      🤒 per {i.category} del {formatDate(i.startDate)} ›
+    </span>
+  )
+}
+
+/** Visite collegate a un episodio (i farmaci sono già nel modulo dell'episodio) */
 export function IllnessHistory({ illnessId }: { illnessId: string }) {
-  const data = useLiveQuery(async () => {
-    const visits = (await db.visits.filter((v) => v.illnessId === illnessId).toArray()).sort((a, b) => a.date.localeCompare(b.date))
-    const ids = new Set(visits.map((v) => v.id))
-    const meds = (await db.medications.filter((m) => !!m.visitId && ids.has(m.visitId)).toArray()).sort((a, b) =>
-      a.startDate.localeCompare(b.startDate),
-    )
-    return { visits, meds }
-  }, [illnessId])
-  if (!data || (!data.visits.length && !data.meds.length)) return null
+  const visits = useLiveQuery(
+    async () => (await db.visits.filter((v) => v.illnessId === illnessId).toArray()).sort((a, b) => a.date.localeCompare(b.date)),
+    [illnessId],
+  )
+  if (!visits?.length) return null
   return (
     <div className="rounded-2xl border border-line p-4">
-      <div className="mb-2 font-medium">📋 Storia dell’episodio</div>
+      <div className="mb-2 font-medium">🩺 Visite per questo episodio</div>
       <div className="space-y-1.5">
-        {data.visits.map((v) => (
-          <Row key={v.id} color="#3b82f6" title={`🩺 ${v.type}`} sub={formatDate(v.date)} onClick={() => navigate(`/visite/${v.id}`)} />
-        ))}
-        {data.meds.map((m) => (
+        {visits.map((v) => (
           <Row
-            key={m.id}
-            color="#f97316"
-            title={`💊 ${m.name}`}
-            sub={[periodLabel(m.startDate, m.endDate), m.dosage, m.frequency].filter(Boolean).join(' · ')}
-            onClick={() => navigate(`/farmaci/${m.id}`)}
+            key={v.id}
+            color="#3b82f6"
+            title={v.type}
+            sub={[formatDate(v.date), v.vet].filter(Boolean).join(' · ')}
+            onClick={() => navigate(`/visite/${v.id}`)}
           />
         ))}
       </div>

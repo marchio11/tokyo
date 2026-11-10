@@ -56,7 +56,7 @@ export const medToDraft = (m: Medication): MedDraft => ({
 export const medDraftValid = (d: MedDraft) => !!d.name.trim() && !!d.startDate && (!d.endDate || d.endDate >= d.startDate)
 
 /** Converte la bozza nel record da salvare nella sezione Farmaci */
-export function draftToMed(d: MedDraft, visitId: string): Medication {
+export function draftToMed(d: MedDraft, link: { visitId?: string; illnessId?: string }): Medication {
   const amount = Math.max(1, parseInt(d.remAmount) || 0)
   const prev = d.existing?.reminder
   return {
@@ -70,7 +70,8 @@ export function draftToMed(d: MedDraft, visitId: string): Medication {
     endDate: d.endDate || undefined,
     notes: d.existing?.notes,
     reminder: d.remOn ? { amount, unit: d.remUnit, done: prev?.amount === amount && prev.unit === d.remUnit ? prev.done : undefined } : undefined,
-    visitId,
+    visitId: link.visitId ?? d.existing?.visitId,
+    illnessId: link.illnessId ?? d.existing?.illnessId,
     attachmentIds: d.existing?.attachmentIds ?? [],
   }
 }
@@ -81,10 +82,15 @@ export function Prescriptions({
   onChange,
   visitDate,
   known,
+  title = 'Farmaci prescritti',
+  hint = 'Compariranno anche nella sezione Farmaci, collegati a questa visita.',
 }: {
   drafts: MedDraft[]
   onChange: (d: MedDraft[]) => void
+  /** data proposta come inizio dei nuovi farmaci */
   visitDate: string
+  title?: string
+  hint?: string
   /** prodotti già usati (dal più recente), per ricompilare i campi con un tocco */
   known: Medication[]
 }) {
@@ -101,9 +107,10 @@ export function Prescriptions({
       <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between gap-3 p-4 text-left">
         <span>
           <span className="block font-medium">
-            💊 Farmaci prescritti{drafts.length ? ` (${drafts.length})` : ''}
+            💊 {title}
+            {drafts.length ? ` (${drafts.length})` : ''}
           </span>
-          <span className="block text-xs text-muted">Compariranno anche nella sezione Farmaci, collegati a questa visita.</span>
+          <span className="block text-xs text-muted">{hint}</span>
         </span>
         <span className={`text-xl text-muted transition-transform ${open ? 'rotate-90' : ''}`}>›</span>
       </button>
