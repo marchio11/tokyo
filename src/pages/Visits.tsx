@@ -157,7 +157,9 @@ function VisitFormInner({
   const [illness, setIllness] = useState<IllnessDraft>(() => (linkedIllness ? illnessToDraft(linkedIllness) : emptyIllness(date)))
   const linkedMeds = rec ? meds.filter((m) => m.visitId === rec.id) : []
   const [drafts, setDrafts] = useState<MedDraft[]>(() => linkedMeds.map(medToDraft))
-  const showIllness = isIllnessType(type) || !!linkedIllness
+  // visita "Malattia": sezione completa dell'episodio; altri tipi (es. ecografia): solo collegamento facoltativo
+  const showIllness = isIllnessType(type)
+  const [linkOn, setLinkOn] = useState(!!linkedIllness && !isIllnessType(rec?.type ?? ''))
   const known = [...meds].sort((a, b) => b.startDate.localeCompare(a.startDate))
 
   // la data della visita fa da inizio predefinito per un nuovo episodio e per i farmaci appena aggiunti
@@ -194,7 +196,7 @@ function VisitFormInner({
     const id = rec?.id ?? newId()
 
     // episodio: nuovo o aggiornamento di quello scelto (stesso record della sezione Malattie)
-    let illnessId: string | undefined
+    let illnessId: string | undefined = !showIllness && linkOn ? illness.id : undefined
     if (showIllness) {
       const prev = illnesses.find((i) => i.id === illness.id)
       illnessId = prev?.id ?? newId()
@@ -266,14 +268,44 @@ function VisitFormInner({
         <Field label="Note">
           <TextArea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Esito, indicazioni del veterinario…" />
         </Field>
-        {showIllness && (
+        {showIllness ? (
           <VisitIllness
+            key="malattia"
             value={illness}
             onChange={setIllness}
             episodes={illnesses}
             suggestions={illnessSuggestions(profile)}
             visitDate={date}
           />
+        ) : (
+          <Card className="space-y-3 border border-line bg-transparent">
+            <label className="flex items-center justify-between gap-3">
+              <span>
+                <span className="block font-medium">🤒 Collega a un episodio di malattia</span>
+                <span className="block text-xs text-muted">Per esami e controlli legati a una malattia già registrata (es. un’ecografia)</span>
+              </span>
+              <input
+                type="checkbox"
+                checked={linkOn}
+                onChange={(e) => {
+                  setLinkOn(e.target.checked)
+                  if (e.target.checked && !illness.id) setIllness(emptyIllness(date))
+                }}
+                className="size-6 accent-shiba"
+              />
+            </label>
+            {linkOn && (
+              <VisitIllness
+                key="collegamento"
+                linkOnly
+                value={illness}
+                onChange={setIllness}
+                episodes={illnesses}
+                suggestions={[]}
+                visitDate={date}
+              />
+            )}
+          </Card>
         )}
         <Prescriptions drafts={drafts} onChange={setDrafts} visitDate={date} known={known} />
         <Card className="space-y-3 border border-line bg-transparent">
@@ -307,7 +339,12 @@ function VisitFormInner({
       </div>
       <FormActions
         onSave={save}
-        canSave={!!type.trim() && !!date && (!showIllness || illnessDraftValid(illness)) && drafts.every(medDraftValid)}
+        canSave={
+          !!type.trim() &&
+          !!date &&
+          (showIllness ? illnessDraftValid(illness) : !linkOn || !!illness.id) &&
+          drafts.every(medDraftValid)
+        }
         onDelete={rec ? () => deleteVisit(rec, linkedIllness, linkedMeds) : undefined}
       />
     </Page>
