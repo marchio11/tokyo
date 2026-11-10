@@ -1,8 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, getProfile, type Illness } from '../db'
 import { ageLabel, daysBetween, formatDate, todayISO } from '../lib/dates'
-import { allReminders } from '../lib/reminders'
-import { ReminderCard } from '../components/ReminderCard'
+import { allReminders, reminderText } from '../lib/reminders'
 import { navigate } from '../lib/router'
 import { medColor } from './Medications'
 import { fmtKg } from './Weights'
@@ -26,7 +25,6 @@ export function Dashboard() {
     profile: await getProfile(),
     illnesses: await db.illnesses.toArray(),
     medications: await db.medications.toArray(),
-    foods: await db.foods.toArray(),
     visits: await db.visits.orderBy('date').toArray(),
     lastWeight: await db.weights.orderBy('date').last(),
     counts: {
@@ -40,7 +38,7 @@ export function Dashboard() {
   if (!data) return <Loading />
 
   const today = todayISO()
-  const { profile, illnesses, medications, foods, visits, lastWeight, counts } = data
+  const { profile, illnesses, medications, visits, lastWeight, counts } = data
 
   // Un contatore per ogni disturbo scelto nella scheda di Tokyo
   const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
@@ -55,8 +53,6 @@ export function Dashboard() {
 
   const reminders = allReminders(medications, visits).filter((r) => r.daysLeft <= 30)
   const activeMeds = medications.filter((m) => m.startDate <= today && (!m.endDate || m.endDate >= today))
-  const activeFoods = foods.filter((f) => f.startDate <= today && (!f.endDate || f.endDate >= today))
-  const nextVisit = visits.find((v) => v.date > today)
 
   return (
     <div className="mx-auto max-w-2xl px-4 pt-[max(env(safe-area-inset-top),16px)] pb-44">
@@ -87,20 +83,9 @@ export function Dashboard() {
         </div>
       </Card>
 
-      {reminders.length > 0 && (
-        <>
-          <SectionTitle>Promemoria</SectionTitle>
-          <div className="space-y-2">
-            {reminders.map((r) => (
-              <ReminderCard key={r.key} r={r} compact />
-            ))}
-          </div>
-        </>
-      )}
-
-      <SectionTitle>Oggi</SectionTitle>
+      <SectionTitle>In evidenza</SectionTitle>
       <Card className="space-y-3">
-        <TodayRow icon="💊" label="In corso">
+        <TodayRow icon="💊" label="Farmaci e integratori in corso">
           {activeMeds.length ? (
             <div className="flex flex-wrap gap-1.5">
               {activeMeds.map((m) => (
@@ -115,20 +100,7 @@ export function Dashboard() {
               ))}
             </div>
           ) : (
-            <span className="text-muted">Nessun farmaco o integratore</span>
-          )}
-        </TodayRow>
-        <TodayRow icon="🍚" label="Alimentazione">
-          {activeFoods.length ? activeFoods.map((f) => f.name).join(', ') : <span className="text-muted">Non indicata</span>}
-        </TodayRow>
-        <TodayRow icon="🩺" label="Prossima visita">
-          {nextVisit ? (
-            <>
-              {nextVisit.type} · {formatDate(nextVisit.date)}{' '}
-              <span className="text-muted">(tra {daysBetween(today, nextVisit.date)} gg)</span>
-            </>
-          ) : (
-            <span className="text-muted">Nessuna in programma</span>
+            <span className="text-muted">Nessuno</span>
           )}
         </TodayRow>
         <TodayRow icon="⚖️" label="Ultimo peso">
@@ -138,6 +110,29 @@ export function Dashboard() {
             </>
           ) : (
             <span className="text-muted">Nessuna pesata</span>
+          )}
+        </TodayRow>
+        <TodayRow icon="📅" label="Scadenze nei prossimi 30 giorni">
+          {reminders.length ? (
+            <div className="mt-0.5 space-y-1">
+              {reminders.map((r) => (
+                <button
+                  key={r.key}
+                  onClick={() => navigate(r.kind === 'med' ? `/farmaci/${r.id}` : `/visite/${r.id}`)}
+                  className="flex w-full items-start gap-2 text-left"
+                >
+                  <span className="shrink-0">{r.icon}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block">{r.title}</span>
+                    <span className={`block text-sm ${r.daysLeft <= 7 ? 'text-shiba' : 'text-muted'}`}>
+                      {formatDate(r.dueDate)} · {reminderText(r.daysLeft)}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="text-muted">Nessuna</span>
           )}
         </TodayRow>
       </Card>

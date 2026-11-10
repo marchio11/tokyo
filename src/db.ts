@@ -55,6 +55,8 @@ export interface Medication {
   reminder?: Reminder
   /** visita in cui è stato prescritto */
   visitId?: string
+  /** episodio di malattia per cui è stato dato */
+  illnessId?: string
   attachmentIds: string[]
   createdAt: number
 }

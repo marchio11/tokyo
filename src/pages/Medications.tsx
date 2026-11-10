@@ -4,7 +4,7 @@ import { db, deleteWithAttachments, newId, type IntervalUnit, type Medication, t
 import { addDays, addInterval, formatDate, periodLabel, todayISO } from '../lib/dates'
 import { allReminders, closePreviousCycles } from '../lib/reminders'
 import { Highlights } from '../components/Highlights'
-import { FromVisit } from '../components/Links'
+import { ForIllness, FromVisit } from '../components/Links'
 import { ComboInput } from '../components/ComboInput'
 import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
@@ -70,7 +70,7 @@ function MedRow({ m }: { m: Medication }) {
             <Pill color={color}>{m.kind}</Pill>
           </div>
           <div className="text-sm text-muted">{periodLabel(m.startDate, m.endDate)}</div>
-          {m.visitId && <FromVisit visitId={m.visitId} />}
+          {m.visitId ? <FromVisit visitId={m.visitId} /> : m.illnessId && <ForIllness illnessId={m.illnessId} />}
           {(m.dosage || m.frequency) && (
             <div className="text-sm text-[#c9c9d1]">{[m.dosage, m.frequency].filter(Boolean).join(' · ')}</div>
           )}
@@ -154,7 +154,12 @@ function MedFormInner({ rec, all }: { rec: Medication | null; all: Medication[] 
   return (
     <Page title={rec ? 'Modifica' : 'Nuovo farmaco / integratore'} back="/farmaci">
       <div className="space-y-4">
-        {rec?.visitId && <FromVisit visitId={rec.visitId} />}
+        {(rec?.visitId || rec?.illnessId) && (
+          <div className="flex flex-col gap-1">
+            {rec.visitId && <FromVisit visitId={rec.visitId} />}
+            {rec.illnessId && <ForIllness illnessId={rec.illnessId} />}
+          </div>
+        )}
         <Segmented value={kind} onChange={setKind} options={MED_KINDS} />
         <Field label="Nome prodotto">
           <ComboInput value={name} onChange={changeName} options={names} placeholder="es. Omega 3" />

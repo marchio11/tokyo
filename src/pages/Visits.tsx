@@ -207,7 +207,7 @@ function VisitFormInner({
 
     // farmaci prescritti: salvati nella sezione Farmaci con il collegamento alla visita
     for (const d of drafts) {
-      const med = draftToMed(d, id)
+      const med = draftToMed(d, { visitId: id, illnessId })
       await db.medications.put(med)
       await closePreviousCycles(med)
     }

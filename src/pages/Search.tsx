@@ -112,7 +112,8 @@ export function SearchPage() {
           m.notes,
           m.kind,
           names(m.attachmentIds),
-          m.visitId && visitIllness.get(m.visitId) && `per ${visitIllness.get(m.visitId)}`,
+          (m.illnessId && illnessOf.get(m.illnessId) && `per ${illnessOf.get(m.illnessId)}`) ||
+            (m.visitId && visitIllness.get(m.visitId) && `per ${visitIllness.get(m.visitId)}`),
         ],
         href: `/farmaci/${m.id}`,
         color: m.kind === 'farmaco' ? '#f97316' : m.kind === 'integratore' ? '#22c55e' : '#14b8a6',
