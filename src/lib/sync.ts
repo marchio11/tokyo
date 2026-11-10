@@ -18,6 +18,15 @@ let uid: string | null = null
 let unsubs: (() => void)[] = []
 let hooksInstalled = false
 
+/**
+ * Voci scritte / eliminate su questo dispositivo e non ancora confermate dal cloud
+ * (chiave "collezione/id"). Il riallineamento all'avvio non deve toccarle: una voce
+ * appena creata non è "eliminata altrove", è solo ancora in viaggio verso il cloud.
+ */
+const unconfirmed = new Set<string>()
+const deletedHere = new Set<string>()
+const keyOf = (c: Coll, id: string) => `${c}/${id}`
+
 const tbl = (c: Coll) => db[c] as unknown as Table<Record<string, unknown> & { id: string }, string>
 const ref = (c: Coll, id: string) => doc(fs, 'users', uid!, c, id)
 
@@ -39,19 +48,29 @@ function outsideTransaction(fn: () => void) {
 }
 
 function push(c: Coll, obj: Record<string, unknown> & { id: string }) {
+  const key = keyOf(c, obj.id)
+  unconfirmed.add(key)
+  deletedHere.delete(key)
   if (!uid) return
   const data = toRemote(c, { ...obj })
   outsideTransaction(() => {
     if (!uid) return
-    setDoc(ref(c, obj.id), data).catch((e) => console.error('Invio al cloud non riuscito', c, e))
+    setDoc(ref(c, obj.id), data)
+      .then(() => unconfirmed.delete(key))
+      .catch((e) => console.error('Invio al cloud non riuscito', c, e))
   })
 }
 
 function pushDelete(c: Coll, id: string) {
+  const key = keyOf(c, id)
+  unconfirmed.delete(key)
+  deletedHere.add(key)
   if (!uid) return
   outsideTransaction(() => {
     if (!uid) return
-    deleteDoc(ref(c, id)).catch((e) => console.error('Eliminazione nel cloud non riuscita', c, e))
+    deleteDoc(ref(c, id))
+      .then(() => deletedHere.delete(key))
+      .catch((e) => console.error('Eliminazione nel cloud non riuscita', c, e))
   })
 }
 
@@ -88,12 +107,23 @@ async function applyRemote(c: Coll, snap: QuerySnapshot, first: boolean) {
       ? snap.docs.map((d) => ({ type: 'added' as const, doc: d }))
       : snap.docChanges().map((ch) => ({ type: ch.type, doc: ch.doc }))
     if (first) {
-      // al primo caricamento elimina i record locali che non esistono più nel cloud
+      // al primo caricamento elimina i record locali che non esistono più nel cloud,
+      // tranne quelli scritti qui e non ancora confermati (che vengono reinviati)
       const remoteIds = new Set(snap.docs.map((d) => d.id))
-      const stale = (await t.toCollection().primaryKeys()).filter((k) => !remoteIds.has(k))
+      const missing = (await t.toCollection().primaryKeys()).filter((k) => !remoteIds.has(k))
+      const stale = missing.filter((k) => !unconfirmed.has(keyOf(c, k)))
       await t.bulkDelete(stale)
+      for (const k of missing.filter((k) => unconfirmed.has(keyOf(c, k)))) {
+        const rec = await t.get(k)
+        if (rec) push(c, rec)
+      }
     }
     for (const ch of changes) {
+      // eliminata qui ma non ancora nel cloud: non va riportata in vita
+      if (deletedHere.has(keyOf(c, ch.doc.id))) {
+        if (ch.type !== 'removed') pushDelete(c, ch.doc.id)
+        continue
+      }
       if (ch.type === 'removed') {
         await t.delete(ch.doc.id)
         continue
