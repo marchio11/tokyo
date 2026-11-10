@@ -88,8 +88,15 @@ const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().t
  * completa il promemoria di quel ciclo.
  */
 export async function closePreviousCycles(med: Pick<Medication, 'id' | 'name' | 'startDate'>) {
-  for (const m of await db.medications.toArray()) {
+  const all = await db.medications.toArray()
+  for (const m of all) {
     if (m.id === med.id || !sameName(m.name, med.name) || !m.reminder || m.reminder.done || !m.endDate || m.endDate > med.startDate) continue
     await db.medications.update(m.id, { reminder: { ...m.reminder, done: true } })
+  }
+  // inserendo un ciclo passato, se dopo di lui ne è già iniziato un altro il suo avviso è già superato
+  const self = all.find((m) => m.id === med.id) ?? (await db.medications.get(med.id))
+  if (self?.reminder && !self.reminder.done && self.endDate) {
+    const later = all.some((m) => m.id !== self.id && sameName(m.name, self.name) && m.startDate >= self.endDate!)
+    if (later) await db.medications.update(self.id, { reminder: { ...self.reminder, done: true } })
   }
 }
