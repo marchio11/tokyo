@@ -183,6 +183,12 @@ function VisitFormInner({
     }
   }
 
+  /** C'è già una visita successiva dello stesso tipo fatta in prossimità del richiamo? */
+  const superseded = (id: string) => {
+    const due = addInterval(date, amount, remUnit)
+    return !!due && all.some((v) => v.id !== id && sameType(v, type) && v.date > date && v.date >= addInterval(due, -3, 'mesi'))
+  }
+
   const save = async () => {
     const attachmentIds = await att.commit()
     const id = rec?.id ?? newId()
@@ -221,9 +227,17 @@ function VisitFormInner({
       type: type.trim(),
       vet: vet.trim() || undefined,
       notes: notes.trim() || undefined,
-      // se cambia l'intervallo l'avviso torna attivo
+      // se cambia l'intervallo l'avviso torna attivo; se dopo questa visita ce n'è già
+      // una dello stesso tipo vicino alla scadenza (es. vaccino 2025 inserito dopo il 2026), il richiamo è già fatto
       reminder: remOn
-        ? { amount, unit: remUnit, done: rec?.reminder?.amount === amount && rec.reminder.unit === remUnit ? rec.reminder.done : undefined }
+        ? {
+            amount,
+            unit: remUnit,
+            done:
+              superseded(id) ||
+              (rec?.reminder?.amount === amount && rec.reminder.unit === remUnit ? rec.reminder.done : undefined) ||
+              undefined,
+          }
         : undefined,
       attachmentIds,
     })

@@ -5,6 +5,7 @@ import { useUser } from './lib/firebase'
 import { startSync, stopSync } from './lib/sync'
 import { startGoogleSync, stopGoogleSync } from './lib/cloud'
 import { SyncBanner } from './components/SyncBanner'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { setSyncDisabled, syncDisabled } from './lib/diag'
 import { LoginPage } from './pages/Login'
 import { Loading } from './components/ui'
@@ -69,7 +70,7 @@ function Main() {
   const tab = ['calendario', 'peso', 'scheda'].includes(section) ? section : ''
   return (
     <>
-      {page}
+      <ErrorBoundary key={[section, ...rest].join('/')}>{page}</ErrorBoundary>
       <SyncBanner />
       {syncDisabled() && (
         <button

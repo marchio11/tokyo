@@ -13,8 +13,12 @@ export function fromISO(s: ISODate): Date {
 
 export const todayISO = () => toISO(new Date())
 
+/** true se la stringa è una data completa 'AAAA-MM-GG' (mentre si scrive nel campo può essere vuota) */
+export const isValidISO = (s?: string): s is ISODate => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(fromISO(s).getTime())
+
 /** Giorni interi tra due date (b - a), indipendenti da ora legale */
 export function daysBetween(a: ISODate, b: ISODate): number {
+  if (!isValidISO(a) || !isValidISO(b)) return 0
   const ua = Date.UTC(...ymd(a))
   const ub = Date.UTC(...ymd(b))
   return Math.round((ub - ua) / 86_400_000)
@@ -26,6 +30,7 @@ function ymd(s: ISODate): [number, number, number] {
 }
 
 export function addInterval(date: ISODate, amount: number, unit: IntervalUnit): ISODate {
+  if (!isValidISO(date)) return ''
   const d = fromISO(date)
   if (unit === 'giorni') d.setDate(d.getDate() + amount)
   else if (unit === 'settimane') d.setDate(d.getDate() + amount * 7)
@@ -41,6 +46,7 @@ export function addInterval(date: ISODate, amount: number, unit: IntervalUnit): 
 }
 
 export function addDays(date: ISODate, n: number): ISODate {
+  if (!isValidISO(date)) return ''
   const d = fromISO(date)
   d.setDate(d.getDate() + n)
   return toISO(d)
@@ -49,8 +55,9 @@ export function addDays(date: ISODate, n: number): ISODate {
 const fmtShort = new Intl.DateTimeFormat('it-IT', { day: 'numeric', month: 'short', year: 'numeric' })
 const fmtLong = new Intl.DateTimeFormat('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
 
-export const formatDate = (s?: ISODate) => (s ? fmtShort.format(fromISO(s)) : '')
-export const formatDateLong = (s: ISODate) => fmtLong.format(fromISO(s))
+// con una data incompleta restituiscono una stringa vuota invece di generare un errore
+export const formatDate = (s?: ISODate) => (isValidISO(s) ? fmtShort.format(fromISO(s)) : '')
+export const formatDateLong = (s: ISODate) => (isValidISO(s) ? fmtLong.format(fromISO(s)) : '')
 
 /** Un intervallo [start, end?] contiene il giorno? (end assente = in corso) */
 export function isActiveOn(day: ISODate, start: ISODate, end?: ISODate): boolean {

@@ -85,6 +85,29 @@ export function Dashboard() {
 
       <SectionTitle>In evidenza</SectionTitle>
       <Card className="space-y-3">
+        <TodayRow icon="📅" label="Scadenze nei prossimi 30 giorni">
+          {reminders.length ? (
+            <div className="mt-0.5 space-y-1">
+              {reminders.map((r) => (
+                <button
+                  key={r.key}
+                  onClick={() => navigate(r.kind === 'med' ? `/farmaci/${r.id}` : `/visite/${r.id}`)}
+                  className="flex w-full items-start gap-2 text-left"
+                >
+                  <span className="shrink-0">{r.icon}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block">{r.title}</span>
+                    <span className={`block text-sm ${r.daysLeft <= 7 ? 'text-shiba' : 'text-muted'}`}>
+                      {formatDate(r.dueDate)} · {reminderText(r.daysLeft)}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <span className="text-muted">Nessuna</span>
+          )}
+        </TodayRow>
         <TodayRow icon="💊" label="Farmaci e integratori in corso">
           {activeMeds.length ? (
             <div className="flex flex-wrap gap-1.5">
@@ -110,29 +133,6 @@ export function Dashboard() {
             </>
           ) : (
             <span className="text-muted">Nessuna pesata</span>
-          )}
-        </TodayRow>
-        <TodayRow icon="📅" label="Scadenze nei prossimi 30 giorni">
-          {reminders.length ? (
-            <div className="mt-0.5 space-y-1">
-              {reminders.map((r) => (
-                <button
-                  key={r.key}
-                  onClick={() => navigate(r.kind === 'med' ? `/farmaci/${r.id}` : `/visite/${r.id}`)}
-                  className="flex w-full items-start gap-2 text-left"
-                >
-                  <span className="shrink-0">{r.icon}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block">{r.title}</span>
-                    <span className={`block text-sm ${r.daysLeft <= 7 ? 'text-shiba' : 'text-muted'}`}>
-                      {formatDate(r.dueDate)} · {reminderText(r.daysLeft)}
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <span className="text-muted">Nessuna</span>
           )}
         </TodayRow>
       </Card>
