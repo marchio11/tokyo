@@ -55,10 +55,10 @@ function Main() {
   let page
   switch (section) {
     case 'visite': page = <VisitsPage key={rest.join('/')} parts={rest} />; break
-    case 'malattie': page = <IllnessesPage key={id} id={id} />; break
+    case 'malattie': page = <IllnessesPage key={rest.join('/')} parts={rest} />; break
     case 'farmaci': page = <MedicationsPage key={rest.join('/')} parts={rest} />; break
-    case 'cibo': page = <FoodsPage key={id} id={id} />; break
-    case 'peso': page = <WeightsPage key={id} id={id} />; break
+    case 'cibo': page = <FoodsPage key={rest.join('/')} parts={rest} />; break
+    case 'peso': page = <WeightsPage key={rest.join('/')} parts={rest} />; break
     case 'calendario': page = <CalendarPage />; break
     case 'scheda': page = <ProfilePage />; break
     case 'riepilogo': page = <ReportPage />; break

@@ -1,3 +1,4 @@
+import { DetailCard, DetailPage, DetailRow } from '../components/Detail'
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, newId, type Food, type FoodKind } from '../db'
@@ -13,8 +14,11 @@ const KINDS: { value: FoodKind; label: string }[] = [
   { value: 'altro', label: 'Altro' },
 ]
 
-export function FoodsPage({ id }: { id?: string }) {
-  return id ? <FoodForm id={id} /> : <FoodList />
+export function FoodsPage({ parts }: { parts: string[] }) {
+  // /cibo · /cibo/nuovo · /cibo/<id> (scheda) · /cibo/<id>/modifica
+  const [id, sub] = parts
+  if (!id) return <FoodList />
+  return id === 'nuovo' || sub === 'modifica' ? <FoodForm id={id} /> : <FoodDetail id={id} />
 }
 
 function FoodList() {
@@ -113,5 +117,21 @@ function FoodFormInner({ rec }: { rec: Food | null }) {
         onDelete={rec ? async () => (await db.foods.delete(rec.id), goBack('/cibo')) : undefined}
       />
     </Page>
+  )
+}
+
+/** Scheda di sola lettura dell'alimento */
+function FoodDetail({ id }: { id: string }) {
+  const f = useLiveQuery(async () => (await db.foods.get(id)) ?? null, [id])
+  return (
+    <DetailPage title={f?.name ?? 'Alimento'} back="/cibo" editHref={`/cibo/${id}/modifica`} record={f}>
+      {(f) => (
+        <DetailCard accent="#a855f7">
+          <DetailRow label="Tipo">{KINDS.find((k) => k.value === f.kind)?.label}</DetailRow>
+          <DetailRow label="Periodo">{periodLabel(f.startDate, f.endDate)}</DetailRow>
+          <DetailRow label="Note">{f.notes}</DetailRow>
+        </DetailCard>
+      )}
+    </DetailPage>
   )
 }

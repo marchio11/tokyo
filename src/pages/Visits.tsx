@@ -1,3 +1,5 @@
+import { DetailCard, DetailPage, DetailRow, DetailSection, LinkRow } from '../components/Detail'
+import { SavedAttachments } from '../components/Attachments'
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -12,7 +14,7 @@ import {
   type Profile,
   type Visit,
 } from '../db'
-import { addInterval, formatDate, todayISO } from '../lib/dates'
+import { addInterval, formatDate, periodLabel, todayISO } from '../lib/dates'
 import { allReminders, closePreviousCycles, visitReminderDate } from '../lib/reminders'
 import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
@@ -24,9 +26,10 @@ import { VisitIllness, emptyIllness, illnessDraftValid, illnessToDraft, type Ill
 import { Prescriptions, draftToMed, medDraftValid, medToDraft, type MedDraft } from '../components/Prescriptions'
 
 export function VisitsPage({ parts }: { parts: string[] }) {
-  // /visite · /visite/nuovo · /visite/<id>
-  const [id] = parts
-  return id ? <VisitForm id={id} /> : <VisitList />
+  // /visite · /visite/nuovo · /visite/<id> (scheda) · /visite/<id>/modifica
+  const [id, sub] = parts
+  if (!id) return <VisitList />
+  return id === 'nuovo' || sub === 'modifica' ? <VisitForm id={id} /> : <VisitDetail id={id} />
 }
 
 function VisitList() {
@@ -366,4 +369,66 @@ async function deleteVisit(v: Visit, illness: Illness | undefined, meds: Medicat
   }
   await deleteWithAttachments('visits', v.id)
   goBack('/visite')
+}
+
+/** Scheda di sola lettura della visita */
+function VisitDetail({ id }: { id: string }) {
+  const data = useLiveQuery(async () => {
+    const v = (await db.visits.get(id)) ?? null
+    return {
+      v,
+      illness: v?.illnessId ? await db.illnesses.get(v.illnessId) : undefined,
+      meds: await db.medications.filter((m) => m.visitId === id).toArray(),
+    }
+  }, [id])
+  return (
+    <DetailPage title={data?.v?.type ?? 'Visita'} back="/visite" editHref={`/visite/${id}/modifica`} record={data?.v}>
+      {(v) => (
+        <>
+          <DetailCard accent="#3b82f6">
+            <DetailRow label="Data">{formatDate(v.date)}</DetailRow>
+            <DetailRow label="Tipo">{v.type}</DetailRow>
+            <DetailRow label="Veterinario / clinica">{v.vet}</DetailRow>
+            <DetailRow label="Note">{v.notes}</DetailRow>
+            <DetailRow label="Richiamo">
+              {v.reminder &&
+                (v.reminder.done
+                  ? 'già fatto'
+                  : `${formatDate(addInterval(v.date, v.reminder.amount, v.reminder.unit))} (dopo ${v.reminder.amount} ${v.reminder.unit})`)}
+            </DetailRow>
+          </DetailCard>
+          {data?.illness && (
+            <DetailSection title="Episodio di malattia">
+              <LinkRow
+                color="#ef4444"
+                title={data.illness.category}
+                sub={periodLabel(data.illness.startDate, data.illness.endDate)}
+                href={`/malattie/${data.illness.id}`}
+              />
+            </DetailSection>
+          )}
+          {!!data?.meds.length && (
+            <DetailSection title="Farmaci prescritti">
+              <div className="space-y-1.5">
+                {data.meds.map((m) => (
+                  <LinkRow
+                    key={m.id}
+                    color="#f97316"
+                    title={m.name}
+                    sub={[periodLabel(m.startDate, m.endDate), m.dosage, m.frequency].filter(Boolean).join(' · ')}
+                    href={`/farmaci/${m.id}`}
+                  />
+                ))}
+              </div>
+            </DetailSection>
+          )}
+          {v.attachmentIds.length > 0 && (
+            <DetailSection title="Allegati">
+              <SavedAttachments ids={v.attachmentIds} />
+            </DetailSection>
+          )}
+        </>
+      )}
+    </DetailPage>
+  )
 }
