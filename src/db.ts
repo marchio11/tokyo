@@ -6,8 +6,10 @@ export type ISODate = string
 export interface Visit {
   id: string
   date: ISODate
-  /** ora facoltativa 'HH:MM' (usata per l'evento nel calendario) */
+  /** ora 'HH:MM' delle prime versioni dell'app: non più usata */
   time?: string
+  /** episodio di malattia per cui è stata fatta la visita */
+  illnessId?: string
   type: string
   vet?: string
   notes?: string
@@ -51,6 +53,8 @@ export interface Medication {
   endDate?: ISODate
   notes?: string
   reminder?: Reminder
+  /** visita in cui è stato prescritto */
+  visitId?: string
   attachmentIds: string[]
   createdAt: number
 }

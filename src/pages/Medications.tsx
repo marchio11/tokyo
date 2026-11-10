@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, deleteWithAttachments, newId, type IntervalUnit, type Medication, type MedKind } from '../db'
 import { addDays, addInterval, formatDate, periodLabel, todayISO } from '../lib/dates'
-import { allReminders } from '../lib/reminders'
+import { allReminders, closePreviousCycles } from '../lib/reminders'
 import { Highlights } from '../components/Highlights'
+import { FromVisit } from '../components/Links'
 import { ComboInput } from '../components/ComboInput'
 import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
@@ -69,6 +70,7 @@ function MedRow({ m }: { m: Medication }) {
             <Pill color={color}>{m.kind}</Pill>
           </div>
           <div className="text-sm text-muted">{periodLabel(m.startDate, m.endDate)}</div>
+          {m.visitId && <FromVisit visitId={m.visitId} />}
           {(m.dosage || m.frequency) && (
             <div className="text-sm text-[#c9c9d1]">{[m.dosage, m.frequency].filter(Boolean).join(' · ')}</div>
           )}
@@ -145,18 +147,14 @@ function MedFormInner({ rec, all }: { rec: Medication | null; all: Medication[] 
         : undefined,
       attachmentIds,
     })
-    // un nuovo ciclo dello stesso prodotto, iniziato dopo la fine del precedente,
-    // completa il promemoria di quel ciclo
-    for (const m of all) {
-      if (m.id === id || !sameName(m.name, name) || !m.reminder || m.reminder.done || !m.endDate || m.endDate > startDate) continue
-      await db.medications.update(m.id, { reminder: { ...m.reminder, done: true } })
-    }
+    await closePreviousCycles({ id, name, startDate })
     goBack('/farmaci')
   }
 
   return (
     <Page title={rec ? 'Modifica' : 'Nuovo farmaco / integratore'} back="/farmaci">
       <div className="space-y-4">
+        {rec?.visitId && <FromVisit visitId={rec.visitId} />}
         <Segmented value={kind} onChange={setKind} options={MED_KINDS} />
         <Field label="Nome prodotto">
           <ComboInput value={name} onChange={changeName} options={names} placeholder="es. Omega 3" />

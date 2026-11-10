@@ -80,3 +80,16 @@ export function reminderText(daysLeft: number): string {
   if (daysLeft === 1) return 'domani'
   return `tra ${daysLeft} giorni`
 }
+
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+
+/**
+ * Un nuovo ciclo dello stesso prodotto, iniziato dopo la fine del precedente,
+ * completa il promemoria di quel ciclo.
+ */
+export async function closePreviousCycles(med: Pick<Medication, 'id' | 'name' | 'startDate'>) {
+  for (const m of await db.medications.toArray()) {
+    if (m.id === med.id || !sameName(m.name, med.name) || !m.reminder || m.reminder.done || !m.endDate || m.endDate > med.startDate) continue
+    await db.medications.update(m.id, { reminder: { ...m.reminder, done: true } })
+  }
+}
