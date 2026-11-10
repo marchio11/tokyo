@@ -151,6 +151,15 @@ export function Dashboard() {
         <SectionTile to="/peso" icon="⚖️" title="Peso" count={counts.weights} color="#eab308" />
         <SectionTile to="/calendario" icon="📅" title="Calendario" color="#f28c28" />
       </div>
+
+      <button
+        onClick={() => navigate('/cerca')}
+        className="mt-3 flex w-full items-center gap-3 rounded-2xl bg-card px-4 py-4 text-left text-muted active:bg-card-2"
+      >
+        <span className="text-xl">🔍</span>
+        <span className="flex-1">Cerca in malattie, farmaci, visite…</span>
+        <span>›</span>
+      </button>
     </div>
   )
 }

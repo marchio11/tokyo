@@ -26,18 +26,6 @@ const eventId = (prefix: 'vis' | 'rem' | 'ric', id: string) => prefix + id.repla
 
 function visitEvent(v: Visit): EventBody {
   const description = [v.vet && `Veterinario: ${v.vet}`, v.notes].filter(Boolean).join('\n\n')
-  if (v.time) {
-    const [h, m] = v.time.split(':').map(Number)
-    const end = `${String(Math.min(h + 1, 23)).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-    return {
-      summary: `🩺 Visita: ${v.type}`,
-      description,
-      start: { dateTime: `${v.date}T${v.time}:00`, timeZone: TZ },
-      end: { dateTime: `${v.date}T${end}:00`, timeZone: TZ },
-      reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 120 }, { method: 'popup', minutes: 24 * 60 }] },
-      status: 'confirmed',
-    }
-  }
   return {
     summary: `🩺 Visita: ${v.type}`,
     description,

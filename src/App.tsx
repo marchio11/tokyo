@@ -18,6 +18,7 @@ import { WeightsPage } from './pages/Weights'
 import { CalendarPage } from './pages/CalendarPage'
 import { ProfilePage } from './pages/Profile'
 import { ReportPage } from './pages/Report'
+import { SearchPage } from './pages/Search'
 
 export default function App() {
   const user = useUser()
@@ -60,6 +61,7 @@ function Main() {
     case 'calendario': page = <CalendarPage />; break
     case 'scheda': page = <ProfilePage />; break
     case 'riepilogo': page = <ReportPage />; break
+    case 'cerca': page = <SearchPage />; break
     default: page = <Dashboard />
   }
 

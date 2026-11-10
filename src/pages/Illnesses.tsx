@@ -6,6 +6,7 @@ import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
 import { AttachmentsField, useAttachments } from '../components/Attachments'
 import { ComboInput } from '../components/ComboInput'
+import { IllnessHistory } from '../components/Links'
 import { Card, Empty, Fab, Field, FormActions, Input, Loading, Page, Pill, Segmented, TextArea } from '../components/ui'
 
 const SEVERITY_COLOR: Record<Severity, string> = { lieve: '#eab308', media: '#f97316', forte: '#ef4444' }
@@ -16,6 +17,7 @@ export function IllnessesPage({ id }: { id?: string }) {
 
 function IllnessList() {
   const list = useLiveQuery(() => db.illnesses.orderBy('startDate').reverse().toArray())
+  const visits = useLiveQuery(() => db.visits.toArray())
   const [filter, setFilter] = useState('')
   if (!list) return <Loading />
   const categories = [...new Set(list.map((i) => i.category))].sort()
@@ -53,6 +55,10 @@ function IllnessList() {
                   {periodLabel(i.startDate, i.endDate)}
                   {i.endDate ? ` · ${daysBetween(i.startDate, i.endDate) + 1} gg` : ''}
                   {i.attachmentIds.length ? ` · 📎 ${i.attachmentIds.length}` : ''}
+                  {(() => {
+                    const n = visits?.filter((v) => v.illnessId === i.id).length ?? 0
+                    return n ? ` · 🩺 ${n} ${n === 1 ? 'visita' : 'visite'}` : ''
+                  })()}
                 </div>
                 {i.description && <p className="mt-1 line-clamp-2 text-sm text-[#c9c9d1]">{i.description}</p>}
               </div>
@@ -143,6 +149,7 @@ function IllnessFormInner({ rec, categories }: { rec: Illness | null; categories
           <TextArea value={notes} onChange={(e) => setNotes(e.target.value)} />
         </Field>
         <AttachmentsField state={att} />
+        {rec && <IllnessHistory illnessId={rec.id} />}
       </div>
       <FormActions
         onSave={save}

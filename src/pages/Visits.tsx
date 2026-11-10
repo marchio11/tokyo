@@ -1,14 +1,27 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, deleteWithAttachments, getProfile, newId, type IntervalUnit, type Visit } from '../db'
+import {
+  db,
+  deleteWithAttachments,
+  getProfile,
+  illnessSuggestions,
+  newId,
+  type Illness,
+  type IntervalUnit,
+  type Medication,
+  type Profile,
+  type Visit,
+} from '../db'
 import { addInterval, formatDate, todayISO } from '../lib/dates'
-import { allReminders, visitReminderDate } from '../lib/reminders'
+import { allReminders, closePreviousCycles, visitReminderDate } from '../lib/reminders'
 import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
 import { AttachmentsField, useAttachments } from '../components/Attachments'
 import { Card, Empty, Fab, Field, FormActions, Input, Loading, Page, Pill, SectionTitle, Select, TextArea } from '../components/ui'
 import { ComboInput } from '../components/ComboInput'
 import { Highlights } from '../components/Highlights'
+import { VisitIllness, emptyIllness, illnessDraftValid, illnessToDraft, type IllnessDraft } from '../components/VisitIllness'
+import { Prescriptions, draftToMed, medDraftValid, medToDraft, type MedDraft } from '../components/Prescriptions'
 
 export function VisitsPage({ parts }: { parts: string[] }) {
   // /visite · /visite/nuovo · /visite/<id>
@@ -18,7 +31,8 @@ export function VisitsPage({ parts }: { parts: string[] }) {
 
 function VisitList() {
   const visits = useLiveQuery(() => db.visits.orderBy('date').reverse().toArray())
-  if (!visits) return <Loading />
+  const links = useLiveQuery(async () => ({ illnesses: await db.illnesses.toArray(), meds: await db.medications.toArray() }))
+  if (!visits || !links) return <Loading />
   const today = todayISO()
   const upcoming = visits.filter((v) => v.date > today)
 
@@ -29,7 +43,7 @@ function VisitList() {
       date: v.date,
       icon: '🩺',
       title: v.type,
-      sub: `in programma${v.time ? ` alle ${v.time}` : ''}`,
+      sub: 'in programma',
       href: `/visite/${v.id}`,
     })),
     ...allReminders([], visits).map((r) => ({
@@ -49,7 +63,13 @@ function VisitList() {
       {visits.length > 0 && <SectionTitle>Tutte le visite</SectionTitle>}
       <div className="space-y-2">
         {visits.map((v) => (
-          <VisitRow key={v.id} v={v} upcoming={v.date > today} />
+          <VisitRow
+            key={v.id}
+            v={v}
+            upcoming={v.date > today}
+            illness={links.illnesses.find((i) => i.id === v.illnessId)}
+            meds={links.meds.filter((m) => m.visitId === v.id)}
+          />
         ))}
       </div>
       <Fab to="/visite/nuovo" />
@@ -58,7 +78,7 @@ function VisitList() {
 }
 
 
-function VisitRow({ v, upcoming }: { v: Visit; upcoming?: boolean }) {
+function VisitRow({ v, upcoming, illness, meds }: { v: Visit; upcoming?: boolean; illness?: Illness; meds: Medication[] }) {
   return (
     <Card onClick={() => navigate(`/visite/${v.id}`)}>
       <div className="flex items-start gap-3">
@@ -70,10 +90,19 @@ function VisitRow({ v, upcoming }: { v: Visit; upcoming?: boolean }) {
           </div>
           <div className="text-sm text-muted">
             {formatDate(v.date)}
-            {v.time ? ` · ore ${v.time}` : ''}
             {v.vet ? ` · ${v.vet}` : ''}
             {v.attachmentIds.length ? ` · 📎 ${v.attachmentIds.length}` : ''}
           </div>
+          {(illness || meds.length > 0) && (
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {illness && <Pill color="#ef4444">🤒 {illness.category}</Pill>}
+              {meds.map((m) => (
+                <Pill key={m.id} color="#f97316">
+                  💊 {m.name}
+                </Pill>
+              ))}
+            </div>
+          )}
           {v.notes && <p className="mt-1 line-clamp-2 text-sm text-[#c9c9d1]">{v.notes}</p>}
           {visitReminderDate(v) && (
             <div className="mt-1 text-xs text-shiba">💉 richiamo il {formatDate(visitReminderDate(v))}</div>
@@ -86,15 +115,34 @@ function VisitRow({ v, upcoming }: { v: Visit; upcoming?: boolean }) {
 
 function VisitForm({ id }: { id: string }) {
   const rec = useRecord(db.visits, id)
-  const profile = useLiveQuery(getProfile)
-  const all = useLiveQuery(() => db.visits.toArray())
-  if (rec === undefined || !profile || !all) return <Loading />
-  return <VisitFormInner rec={rec} types={profile.visitTypes} all={all} />
+  const data = useLiveQuery(async () => ({
+    profile: await getProfile(),
+    all: await db.visits.toArray(),
+    illnesses: await db.illnesses.toArray(),
+    meds: await db.medications.toArray(),
+  }))
+  if (rec === undefined || !data) return <Loading />
+  return <VisitFormInner rec={rec} {...data} />
 }
 
-function VisitFormInner({ rec, types, all }: { rec: Visit | null; types: string[]; all: Visit[] }) {
+const ILLNESS_TYPE = 'Malattia'
+const isIllnessType = (t: string) => t.trim().toLowerCase() === ILLNESS_TYPE.toLowerCase()
+
+function VisitFormInner({
+  rec,
+  profile,
+  all,
+  illnesses,
+  meds,
+}: {
+  rec: Visit | null
+  profile: Profile
+  all: Visit[]
+  illnesses: Illness[]
+  meds: Medication[]
+}) {
+  const types = [...new Set([ILLNESS_TYPE, ...profile.visitTypes])]
   const [date, setDate] = useState(rec?.date ?? presetDate(todayISO()))
-  const [time, setTime] = useState(rec?.time ?? '')
   const [type, setType] = useState(rec?.type ?? '')
   const [vet, setVet] = useState(rec?.vet ?? '')
   const [notes, setNotes] = useState(rec?.notes ?? '')
@@ -103,6 +151,21 @@ function VisitFormInner({ rec, types, all }: { rec: Visit | null; types: string[
   const [remUnit, setRemUnit] = useState<IntervalUnit>(rec?.reminder?.unit ?? 'anni')
   const amount = Math.max(1, parseInt(remAmount) || 0)
   const att = useAttachments(rec?.attachmentIds ?? [])
+
+  // episodio di malattia e farmaci prescritti collegati alla visita
+  const linkedIllness = illnesses.find((i) => i.id === rec?.illnessId)
+  const [illness, setIllness] = useState<IllnessDraft>(() => (linkedIllness ? illnessToDraft(linkedIllness) : emptyIllness(date)))
+  const linkedMeds = rec ? meds.filter((m) => m.visitId === rec.id) : []
+  const [drafts, setDrafts] = useState<MedDraft[]>(() => linkedMeds.map(medToDraft))
+  const showIllness = isIllnessType(type) || !!linkedIllness
+  const known = [...meds].sort((a, b) => b.startDate.localeCompare(a.startDate))
+
+  // la data della visita fa da inizio predefinito per un nuovo episodio e per i farmaci appena aggiunti
+  const changeDate = (d: string) => {
+    if (!illness.id && illness.startDate === date) setIllness({ ...illness, startDate: d })
+    setDrafts(drafts.map((m) => (!m.existing && m.startDate === date ? { ...m, startDate: d } : m)))
+    setDate(d)
+  }
 
   const sameType = (v: Visit, t: string) => v.type.trim().toLowerCase() === t.trim().toLowerCase()
 
@@ -123,11 +186,38 @@ function VisitFormInner({ rec, types, all }: { rec: Visit | null; types: string[
   const save = async () => {
     const attachmentIds = await att.commit()
     const id = rec?.id ?? newId()
+
+    // episodio: nuovo o aggiornamento di quello scelto (stesso record della sezione Malattie)
+    let illnessId: string | undefined
+    if (showIllness) {
+      const prev = illnesses.find((i) => i.id === illness.id)
+      illnessId = prev?.id ?? newId()
+      await db.illnesses.put({
+        id: illnessId,
+        createdAt: prev?.createdAt ?? Date.now(),
+        category: illness.category.trim(),
+        description: illness.description.trim() || undefined,
+        startDate: illness.startDate,
+        endDate: illness.endDate || undefined,
+        severity: illness.severity || undefined,
+        notes: prev?.notes,
+        attachmentIds: prev?.attachmentIds ?? [],
+      })
+    }
+
+    // farmaci prescritti: salvati nella sezione Farmaci con il collegamento alla visita
+    for (const d of drafts) {
+      const med = draftToMed(d, id)
+      await db.medications.put(med)
+      await closePreviousCycles(med)
+    }
+    for (const m of linkedMeds) if (!drafts.some((d) => d.existing?.id === m.id)) await deleteWithAttachments('medications', m.id)
+
     await db.visits.put({
       id,
       createdAt: rec?.createdAt ?? Date.now(),
       date,
-      time: time || undefined,
+      illnessId,
       type: type.trim(),
       vet: vet.trim() || undefined,
       notes: notes.trim() || undefined,
@@ -153,23 +243,25 @@ function VisitFormInner({ rec, types, all }: { rec: Visit | null; types: string[
         <Field label="Tipo di visita">
           <ComboInput value={type} onChange={changeType} options={types} placeholder="es. Controllo" />
         </Field>
-        <div className="grid grid-cols-[1fr_auto] gap-3">
-          <Field label="Data">
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </Field>
-          <Field label="Ora">
-            <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="w-32" />
-          </Field>
-        </div>
-        <p className="-mt-2 text-xs text-muted">
-          Puoi inserire anche una visita futura: comparirà nel calendario Google “Tokyo”. L’ora è facoltativa.
-        </p>
+        <Field label="Data" hint="Puoi inserire anche una visita futura: comparirà nel calendario Google “Tokyo”.">
+          <Input type="date" value={date} onChange={(e) => changeDate(e.target.value)} />
+        </Field>
         <Field label="Veterinario / clinica">
           <Input value={vet} onChange={(e) => setVet(e.target.value)} placeholder="facoltativo" />
         </Field>
         <Field label="Note">
           <TextArea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Esito, indicazioni del veterinario…" />
         </Field>
+        {showIllness && (
+          <VisitIllness
+            value={illness}
+            onChange={setIllness}
+            episodes={illnesses}
+            suggestions={illnessSuggestions(profile)}
+            visitDate={date}
+          />
+        )}
+        <Prescriptions drafts={drafts} onChange={setDrafts} visitDate={date} known={known} />
         <Card className="space-y-3 border border-line bg-transparent">
           <label className="flex items-center justify-between gap-3">
             <span>
@@ -201,9 +293,26 @@ function VisitFormInner({ rec, types, all }: { rec: Visit | null; types: string[
       </div>
       <FormActions
         onSave={save}
-        canSave={!!type.trim() && !!date}
-        onDelete={rec ? async () => (await deleteWithAttachments('visits', rec.id), goBack('/visite')) : undefined}
+        canSave={!!type.trim() && !!date && (!showIllness || illnessDraftValid(illness)) && drafts.every(medDraftValid)}
+        onDelete={rec ? () => deleteVisit(rec, linkedIllness, linkedMeds) : undefined}
       />
     </Page>
   )
+}
+
+/** Elimina la visita chiedendo cosa fare dell'episodio e dei farmaci collegati */
+async function deleteVisit(v: Visit, illness: Illness | undefined, meds: Medication[]) {
+  if (illness || meds.length) {
+    const what = [illness && `l’episodio “${illness.category}”`, meds.length && `${meds.length === 1 ? 'il farmaco' : `i ${meds.length} farmaci`} prescritti`]
+      .filter(Boolean)
+      .join(' e ')
+    if (confirm(`Eliminare anche ${what}?\n\nOK = elimina anche loro · Annulla = tienili nelle rispettive sezioni`)) {
+      if (illness) await deleteWithAttachments('illnesses', illness.id)
+      for (const m of meds) await deleteWithAttachments('medications', m.id)
+    } else {
+      for (const m of meds) await db.medications.update(m.id, { visitId: undefined })
+    }
+  }
+  await deleteWithAttachments('visits', v.id)
+  goBack('/visite')
 }
