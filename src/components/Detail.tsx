@@ -31,10 +31,14 @@ export function DetailPage<T>({
       action={
         <button
           onClick={() => navigate(editHref)}
-          className="flex items-center gap-1.5 rounded-full bg-shiba px-4 py-2 font-semibold text-black active:brightness-90"
+          className="-mr-1 grid size-10 shrink-0 place-items-center rounded-full bg-card text-shiba active:bg-card-2"
           aria-label="Modifica"
+          title="Modifica"
         >
-          ✏️ Modifica
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z" />
+            <path d="M13.5 6.5l4 4" />
+          </svg>
         </button>
       }
     >
