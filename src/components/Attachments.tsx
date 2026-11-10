@@ -79,24 +79,17 @@ export function AttachmentsField({ state }: { state: ReturnType<typeof useAttach
 }
 
 /** Elenco allegati in sola lettura (o con rimozione) */
-export function AttachmentList({
-  items,
-  onRemove,
-  showNames = false,
-}: {
-  items: Item[]
-  onRemove?: (id: string) => void
-  /** mostra il nome del file anche sotto le immagini (documenti) */
-  showNames?: boolean
-}) {
+/**
+ * Apertura degli allegati: le immagini in un visualizzatore a schermo intero,
+ * gli altri file con l'app del telefono. Se il file non è sul dispositivo si scarica da Drive.
+ */
+export function useOpener() {
   const [viewer, setViewer] = useState<Item | null>(null)
   const [loading, setLoading] = useState<string | null>(null)
-  if (!items.length) return null
 
   const open = async (a: Item) => {
     let blob = a.blob
     if (!blob) {
-      // non ancora sul dispositivo: si scarica da Google Drive
       setLoading(a.id)
       try {
         if (!currentToken()) await renewToken()
@@ -119,6 +112,27 @@ export function AttachmentList({
     setTimeout(() => URL.revokeObjectURL(url), 60_000)
   }
 
+  const viewerEl = viewer?.blob ? (
+    <div className="fixed inset-0 z-50 flex flex-col bg-black/95" onClick={() => setViewer(null)}>
+      <div className="flex items-center justify-between p-4 pt-[max(env(safe-area-inset-top),16px)]">
+        <span className="truncate text-sm text-muted">{viewer.name}</span>
+        <button className="text-3xl text-white" aria-label="Chiudi">
+          ×
+        </button>
+      </div>
+      <div className="flex flex-1 items-center justify-center overflow-auto p-2">
+        <BlobImage blob={viewer.blob} className="max-h-full max-w-full object-contain" />
+      </div>
+    </div>
+  ) : null
+
+  return { open, loading, viewerEl }
+}
+
+export function AttachmentList({ items, onRemove }: { items: Item[]; onRemove?: (id: string) => void }) {
+  const { open, loading, viewerEl } = useOpener()
+  if (!items.length) return null
+
   return (
     <>
       <div className="grid grid-cols-3 gap-2">
@@ -136,9 +150,6 @@ export function AttachmentList({
                 </div>
               )}
             </button>
-            {showNames && a.type.startsWith('image/') && a.blob && (
-              <span className="mt-1 line-clamp-2 block text-center text-xs break-all text-muted">{a.name}</span>
-            )}
             {onRemove && (
               <button
                 type="button"
@@ -152,24 +163,12 @@ export function AttachmentList({
           </div>
         ))}
       </div>
-      {viewer?.blob && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/95" onClick={() => setViewer(null)}>
-          <div className="flex items-center justify-between p-4 pt-[max(env(safe-area-inset-top),16px)]">
-            <span className="truncate text-sm text-muted">{viewer.name}</span>
-            <button className="text-3xl text-white" aria-label="Chiudi">
-              ×
-            </button>
-          </div>
-          <div className="flex flex-1 items-center justify-center overflow-auto p-2">
-            <BlobImage blob={viewer.blob} className="max-h-full max-w-full object-contain" />
-          </div>
-        </div>
-      )}
+      {viewerEl}
     </>
   )
 }
 
-function BlobImage({ blob, className }: { blob: Blob; className?: string }) {
+export function BlobImage({ blob, className }: { blob: Blob; className?: string }) {
   const url = useMemo(() => URL.createObjectURL(blob), [blob])
   useEffect(() => () => URL.revokeObjectURL(url), [url])
   return <img src={url} alt="" className={className} />

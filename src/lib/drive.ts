@@ -83,7 +83,8 @@ export function queueTrash(driveId: string) {
 export async function pendingDriveWork(): Promise<number> {
   const toUpload = await db.attachments.filter((a) => !!a.blob && !a.driveId).count()
   const toTrash = (JSON.parse(ls.get(TRASH_KEY) ?? '[]') as string[]).length
-  return toUpload + toTrash
+  const toRename = await db.attachments.filter((a) => !!a.driveId && !!a.driveName && a.driveName !== a.name).count()
+  return toUpload + toTrash + toRename
 }
 
 /** Carica gli allegati nuovi e cestina quelli eliminati */
@@ -91,7 +92,18 @@ export async function syncDrive() {
   const toUpload = await db.attachments.filter((a) => !!a.blob && !a.driveId).toArray()
   for (const a of toUpload) {
     const driveId = await upload(a.name, a.type, a.blob!)
-    await db.attachments.update(a.id, { driveId })
+    await db.attachments.update(a.id, { driveId, driveName: a.name })
+  }
+  // file rinominati nell'app: stesso nome anche su Drive
+  const toRename = await db.attachments.filter((a) => !!a.driveId && !!a.driveName && a.driveName !== a.name).toArray()
+  for (const a of toRename) {
+    const res = await gfetch(`${API}/files/${a.driveId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: a.name }),
+    })
+    if (!res.ok && res.status !== 404) throw new Error(`Drive ${res.status}`)
+    await db.attachments.update(a.id, { driveName: a.name })
   }
   const trash: string[] = JSON.parse(ls.get(TRASH_KEY) ?? '[]')
   while (trash.length) {

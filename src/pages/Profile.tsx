@@ -102,7 +102,6 @@ function ProfileInner({ profile }: { profile: Profile }) {
         </Button>
       </div>
 
-      <SectionTitle>📁 Documenti di Tokyo</SectionTitle>
       <Documents />
 
       <SectionTitle>Riepilogo</SectionTitle>
