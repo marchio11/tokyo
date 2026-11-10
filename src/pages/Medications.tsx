@@ -3,7 +3,8 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { db, deleteWithAttachments, newId, type IntervalUnit, type Medication, type MedKind } from '../db'
 import { addDays, addInterval, formatDate, periodLabel, todayISO } from '../lib/dates'
 import { allReminders } from '../lib/reminders'
-import { ReminderCard } from '../components/ReminderCard'
+import { Highlights } from '../components/Highlights'
+import { ComboInput } from '../components/ComboInput'
 import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
 import { AttachmentsField, useAttachments } from '../components/Attachments'
@@ -17,9 +18,9 @@ export const MED_KINDS: { value: MedKind; label: string; color: string }[] = [
 export const medColor = (k: MedKind) => MED_KINDS.find((m) => m.value === k)!.color
 
 export function MedicationsPage({ parts }: { parts: string[] }) {
-  // /farmaci · /farmaci/nuovo · /farmaci/nuovo/da/<id> · /farmaci/<id>
-  const [id, , fromId] = parts
-  return id ? <MedForm id={id} fromId={fromId} /> : <MedList />
+  // /farmaci · /farmaci/nuovo · /farmaci/<id>
+  const [id] = parts
+  return id ? <MedForm id={id} /> : <MedList />
 }
 
 function MedList() {
@@ -35,16 +36,16 @@ function MedList() {
     <Page title="Farmaci e integratori" back="/">
       {!meds.length && <Empty>Nessun farmaco o integratore registrato.<br />Tocca + per aggiungerne uno.</Empty>}
 
-      {reminders.length > 0 && (
-        <>
-          <SectionTitle>Prossimi cicli</SectionTitle>
-          <div className="space-y-2">
-            {reminders.map((r) => (
-              <ReminderCard key={r.key} r={r} />
-            ))}
-          </div>
-        </>
-      )}
+      <Highlights
+        items={reminders.map((r) => ({
+          key: r.key,
+          date: r.dueDate,
+          icon: '🔔',
+          title: r.title.replace(/^Nuovo ciclo: /, ''),
+          sub: 'inizio nuovo ciclo',
+          href: `/farmaci/${r.id}`,
+        }))}
+      />
       {active.length > 0 && <SectionTitle>In corso</SectionTitle>}
       <div className="space-y-2">{active.map((m) => <MedRow key={m.id} m={m} />)}</div>
       {future.length > 0 && <SectionTitle>Programmati</SectionTitle>}
@@ -82,34 +83,54 @@ function MedRow({ m }: { m: Medication }) {
   )
 }
 
-function MedForm({ id, fromId }: { id: string; fromId?: string }) {
+function MedForm({ id }: { id: string }) {
   const rec = useRecord(db.medications, id)
-  const template = useRecord(db.medications, fromId)
-  if (rec === undefined || template === undefined) return <Loading />
-  return <MedFormInner rec={rec} template={template} />
+  const all = useLiveQuery(() => db.medications.toArray())
+  if (rec === undefined || !all) return <Loading />
+  return <MedFormInner rec={rec} all={all} />
 }
 
-function MedFormInner({ rec, template }: { rec: Medication | null; template: Medication | null }) {
-  const src = rec ?? template
-  const [kind, setKind] = useState<MedKind>(src?.kind ?? 'farmaco')
-  const [name, setName] = useState(src?.name ?? '')
-  const [dosage, setDosage] = useState(src?.dosage ?? '')
-  const [frequency, setFrequency] = useState(src?.frequency ?? '')
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+
+function MedFormInner({ rec, all }: { rec: Medication | null; all: Medication[] }) {
+  const [kind, setKind] = useState<MedKind>(rec?.kind ?? 'farmaco')
+  const [name, setName] = useState(rec?.name ?? '')
+  const [dosage, setDosage] = useState(rec?.dosage ?? '')
+  const [frequency, setFrequency] = useState(rec?.frequency ?? '')
   const [startDate, setStartDate] = useState(rec?.startDate ?? presetDate(todayISO()))
   const [endDate, setEndDate] = useState(rec?.endDate ?? '')
   const [notes, setNotes] = useState(rec?.notes ?? '')
-  const [remOn, setRemOn] = useState(!!src?.reminder)
-  const [remAmount, setRemAmount] = useState(String(src?.reminder?.amount ?? 2))
-  const [remUnit, setRemUnit] = useState<IntervalUnit>(src?.reminder?.unit ?? 'mesi')
+  const [remOn, setRemOn] = useState(!!rec?.reminder)
+  const [remAmount, setRemAmount] = useState(String(rec?.reminder?.amount ?? 2))
+  const [remUnit, setRemUnit] = useState<IntervalUnit>(rec?.reminder?.unit ?? 'mesi')
   const att = useAttachments(rec?.attachmentIds ?? [])
+
+  // prodotti già usati, dal più recente: toccandone uno si ricompilano tipo, dosaggio e avviso
+  const previous = [...all].sort((a, b) => b.startDate.localeCompare(a.startDate))
+  const names = [...new Set(previous.map((m) => m.name))].slice(0, 8)
+  const changeName = (n: string) => {
+    setName(n)
+    if (rec) return
+    const prev = previous.find((m) => sameName(m.name, n))
+    if (!prev) return
+    setKind(prev.kind)
+    if (!dosage) setDosage(prev.dosage ?? '')
+    if (!frequency) setFrequency(prev.frequency ?? '')
+    if (prev.reminder && !remOn) {
+      setRemOn(true)
+      setRemAmount(String(prev.reminder.amount))
+      setRemUnit(prev.reminder.unit)
+    }
+  }
 
   const validEnd = !endDate || endDate >= startDate
   const amount = Math.max(1, parseInt(remAmount) || 0)
 
   const save = async () => {
     const attachmentIds = await att.commit()
+    const id = rec?.id ?? newId()
     await db.medications.put({
-      id: rec?.id ?? newId(),
+      id,
       createdAt: rec?.createdAt ?? Date.now(),
       kind,
       name: name.trim(),
@@ -124,17 +145,21 @@ function MedFormInner({ rec, template }: { rec: Medication | null; template: Med
         : undefined,
       attachmentIds,
     })
-    // avviando un nuovo ciclo, l'avviso del ciclo precedente viene archiviato
-    if (template?.reminder) await db.medications.update(template.id, { reminder: { ...template.reminder, done: true } })
+    // un nuovo ciclo dello stesso prodotto, iniziato dopo la fine del precedente,
+    // completa il promemoria di quel ciclo
+    for (const m of all) {
+      if (m.id === id || !sameName(m.name, name) || !m.reminder || m.reminder.done || !m.endDate || m.endDate > startDate) continue
+      await db.medications.update(m.id, { reminder: { ...m.reminder, done: true } })
+    }
     goBack('/farmaci')
   }
 
   return (
-    <Page title={rec ? 'Modifica' : template ? 'Nuovo ciclo' : 'Nuovo farmaco / integratore'} back="/farmaci">
+    <Page title={rec ? 'Modifica' : 'Nuovo farmaco / integratore'} back="/farmaci">
       <div className="space-y-4">
         <Segmented value={kind} onChange={setKind} options={MED_KINDS} />
         <Field label="Nome prodotto">
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="es. Omega 3" />
+          <ComboInput value={name} onChange={changeName} options={names} placeholder="es. Omega 3" />
         </Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Dosaggio">
@@ -162,8 +187,7 @@ function MedFormInner({ rec, template }: { rec: Medication | null; template: Med
             </>
           ) : (
             <>
-              <span className="mr-auto">Senza fine = in corso.</span>
-              <span>Durata:</span>
+              <span className="w-full">Senza fine = in corso. Durata rapida:</span>
               {[7, 10, 14, 30].map((d) => (
                 <button key={d} className="rounded-full border border-line px-2 py-0.5 text-shiba" onClick={() => setEndDate(addDays(startDate, d - 1))}>
                   {d}gg

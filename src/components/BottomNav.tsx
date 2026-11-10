@@ -17,7 +17,7 @@ export function BottomNav({ current }: { current: string }) {
             <a
               key={label}
               href={`#/${path}`}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[11px] ${active ? 'text-shiba' : 'text-muted'}`}
+              className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs ${active ? 'text-shiba' : 'text-muted'}`}
             >
               <Icon width={24} height={24} />
               {label}

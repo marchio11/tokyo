@@ -42,10 +42,10 @@ export function Dashboard() {
   const today = todayISO()
   const { profile, illnesses, medications, foods, visits, lastWeight, counts } = data
 
-  // Un contatore per ogni tipo di disturbo (quelli predefiniti + quelli registrati)
-  const categories = [...new Set([...profile.illnessCategories, ...illnesses.map((i) => i.category)])]
-  const counters: Counter[] = categories.map((category) => {
-    const eps = illnesses.filter((i) => i.category === category)
+  // Un contatore per ogni disturbo scelto nella scheda di Tokyo
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
+  const counters: Counter[] = profile.illnessCategories.map((category) => {
+    const eps = illnesses.filter((i) => same(i.category, category))
     const ongoing = eps.some((e) => !e.endDate && e.startDate <= today)
     const last = eps.sort((a, b) => (b.endDate ?? '9999').localeCompare(a.endDate ?? '9999'))[0]
     return { category, last, ongoing, days: last?.endDate ? Math.max(0, daysBetween(last.endDate, today)) : undefined }
@@ -160,7 +160,7 @@ function CounterTile({ c }: { c: Counter }) {
   if (c.ongoing)
     return (
       <button onClick={go} className="rounded-xl bg-red-500/10 p-3 text-left ring-1 ring-red-500/40">
-        <div className="truncate text-sm text-[#c9c9d1]">{c.category}</div>
+        <div className="line-clamp-2 text-sm leading-tight text-[#c9c9d1]">{c.category}</div>
         <div className="mt-1 flex items-center gap-1.5 text-lg font-semibold text-red-400">
           <span className="size-2.5 animate-pulse rounded-full bg-red-500" /> in corso
         </div>
@@ -169,14 +169,14 @@ function CounterTile({ c }: { c: Counter }) {
   if (c.days === undefined)
     return (
       <button onClick={go} className="rounded-xl bg-card-2 p-3 text-left">
-        <div className="truncate text-sm text-[#c9c9d1]">{c.category}</div>
+        <div className="line-clamp-2 text-sm leading-tight text-[#c9c9d1]">{c.category}</div>
         <div className="mt-1 text-lg text-muted">mai 🎉</div>
       </button>
     )
   const mood = moodFor(c.days)
   return (
     <button onClick={go} className="rounded-xl bg-card-2 p-3 text-left">
-      <div className="truncate text-sm text-[#c9c9d1]">{c.category}</div>
+      <div className="line-clamp-2 text-sm leading-tight text-[#c9c9d1]">{c.category}</div>
       <div className="mt-0.5 flex items-baseline gap-1.5">
         <span className="text-3xl font-semibold tabular-nums" style={{ color: mood.color }}>
           {c.days}
@@ -194,7 +194,7 @@ function TodayRow({ icon, label, children }: { icon: string; label: string; chil
       <span className="text-xl">{icon}</span>
       <div className="min-w-0 flex-1">
         <div className="text-xs text-muted">{label}</div>
-        <div className="text-[15px]">{children}</div>
+        <div className="text-base">{children}</div>
       </div>
     </div>
   )

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, deleteWithAttachments, getProfile, newId, type Illness, type Severity } from '../db'
+import { db, illnessSuggestions, deleteWithAttachments, getProfile, newId, type Illness, type Severity } from '../db'
 import { daysBetween, periodLabel, todayISO } from '../lib/dates'
 import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
@@ -69,7 +69,7 @@ function IllnessForm({ id }: { id: string }) {
   const rec = useRecord(db.illnesses, id)
   const profile = useLiveQuery(getProfile)
   if (rec === undefined || !profile) return <Loading />
-  return <IllnessFormInner rec={rec} categories={profile.illnessCategories} />
+  return <IllnessFormInner rec={rec} categories={illnessSuggestions(profile)} />
 }
 
 function IllnessFormInner({ rec, categories }: { rec: Illness | null; categories: string[] }) {

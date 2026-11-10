@@ -123,7 +123,7 @@ export function AttachmentList({ items, onRemove }: { items: Item[]; onRemove?: 
                   <span className="text-3xl">
                     {loading === a.id ? '⏳' : !a.blob ? '☁️' : a.type === 'application/pdf' ? '📄' : '📁'}
                   </span>
-                  <span className="line-clamp-2 text-center text-[11px] break-all text-muted">{a.name}</span>
+                  <span className="line-clamp-2 text-center text-xs break-all text-muted">{a.name}</span>
                 </div>
               )}
             </button>
