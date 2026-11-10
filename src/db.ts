@@ -98,9 +98,18 @@ export interface Profile {
   vetName?: string
   vetPhone?: string
   notes?: string
+  /** disturbi con il contatore "giorni senza…" in dashboard */
   illnessCategories: string[]
+  /** disturbi proposti come suggerimento nell'inserimento di un episodio */
+  illnessSuggestions?: string[]
   visitTypes: string[]
 }
+
+const DEFAULT_ILLNESS_SUGGESTIONS = ['Otite', 'Diarrea', 'Vomito', 'Dermatite', 'Ghiandole perianali']
+
+/** Disturbi suggeriti: quelli scelti nella scheda, oppure i predefiniti */
+export const illnessSuggestions = (p: Profile) =>
+  p.illnessSuggestions ?? [...new Set([...DEFAULT_ILLNESS_SUGGESTIONS, ...p.illnessCategories])]
 
 export const DEFAULT_PROFILE: Profile = {
   id: 'tokyo',

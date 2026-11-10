@@ -107,12 +107,12 @@ export function CalendarPage() {
                   setSelected(c.iso)
                   if (!c.inMonth) setYm({ y: +c.iso.slice(0, 4), m: +c.iso.slice(5, 7) - 1 })
                 }}
-                className={`flex h-[68px] flex-col items-stretch rounded-lg px-1 pt-1 pb-1.5 ${
+                className={`flex h-[4.25rem] flex-col items-stretch rounded-lg px-1 pt-1 pb-1.5 ${
                   isSel ? 'bg-card-2 ring-1 ring-shiba' : 'bg-card'
                 } ${c.inMonth ? '' : 'opacity-35'}`}
               >
                 <span
-                  className={`mx-auto mb-1 grid size-6 place-items-center rounded-full text-[13px] ${
+                  className={`mx-auto mb-1 grid size-6 place-items-center rounded-full text-[15px] ${
                     isToday ? 'bg-shiba font-semibold text-black' : ''
                   }`}
                 >

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, getProfile, type Profile } from '../db'
+import { db, getProfile, illnessSuggestions, type Profile } from '../db'
 import { ageLabel, formatDate } from '../lib/dates'
 import { exportBackup, importBackup } from '../lib/backup'
 import { navigate } from '../lib/router'
@@ -81,8 +81,16 @@ function ProfileInner({ profile }: { profile: Profile }) {
 
         <TagEditor
           label="Disturbi monitorati in dashboard"
+          hint="Solo questi hanno il contatore “giorni senza…” nella pagina principale."
           values={p.illnessCategories}
           onChange={(v) => set('illnessCategories', v)}
+          quick={illnessSuggestions(p)}
+        />
+        <TagEditor
+          label="Disturbi suggeriti nell’inserimento"
+          hint="Compaiono come scelte rapide quando registri un nuovo episodio."
+          values={illnessSuggestions(p)}
+          onChange={(v) => set('illnessSuggestions', v)}
         />
         <TagEditor label="Tipi di visita suggeriti" values={p.visitTypes} onChange={(v) => set('visitTypes', v)} />
 
@@ -114,7 +122,21 @@ function ProfileInner({ profile }: { profile: Profile }) {
   )
 }
 
-function TagEditor({ label, values, onChange }: { label: string; values: string[]; onChange: (v: string[]) => void }) {
+function TagEditor({
+  label,
+  hint,
+  values,
+  onChange,
+  quick = [],
+}: {
+  label: string
+  hint?: string
+  values: string[]
+  onChange: (v: string[]) => void
+  /** valori proposti con un tocco (solo quelli non ancora presenti) */
+  quick?: string[]
+}) {
+  const missing = quick.filter((q) => !values.some((v) => v.toLowerCase() === q.toLowerCase()))
   const [draft, setDraft] = useState('')
   const add = () => {
     const v = draft.trim()
@@ -123,7 +145,8 @@ function TagEditor({ label, values, onChange }: { label: string; values: string[
   }
   return (
     <div>
-      <span className="mb-1.5 block text-sm text-muted">{label}</span>
+      <span className="block text-sm text-muted">{label}</span>
+      {hint && <span className="mb-1.5 block text-xs text-muted/80">{hint}</span>}
       <div className="mb-2 flex flex-wrap gap-1.5">
         {values.map((v) => (
           <span key={v} className="flex items-center gap-1 rounded-full bg-card-2 py-1 pr-1.5 pl-3 text-sm">
@@ -134,6 +157,15 @@ function TagEditor({ label, values, onChange }: { label: string; values: string[
           </span>
         ))}
       </div>
+      {missing.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {missing.map((q) => (
+            <button key={q} onClick={() => onChange([...values, q])} className="rounded-full border border-dashed border-line px-3 py-1 text-sm text-muted">
+              + {q}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="flex gap-2">
         <Input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="Aggiungi…" />
         <Button variant="ghost" onClick={add} className="px-4">

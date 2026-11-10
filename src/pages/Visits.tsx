@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, deleteWithAttachments, getProfile, newId, type IntervalUnit, type Visit } from '../db'
-import { addInterval, daysBetween, formatDate, todayISO } from '../lib/dates'
+import { addInterval, formatDate, todayISO } from '../lib/dates'
 import { allReminders, visitReminderDate } from '../lib/reminders'
 import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
 import { AttachmentsField, useAttachments } from '../components/Attachments'
 import { Card, Empty, Fab, Field, FormActions, Input, Loading, Page, Pill, SectionTitle, Select, TextArea } from '../components/ui'
 import { ComboInput } from '../components/ComboInput'
+import { Highlights } from '../components/Highlights'
 
 export function VisitsPage({ parts }: { parts: string[] }) {
   // /visite · /visite/nuovo · /visite/<id>
@@ -39,33 +40,12 @@ function VisitList() {
       sub: 'richiamo',
       href: `/visite/${r.id}`,
     })),
-  ].sort((a, b) => a.date.localeCompare(b.date))
+  ]
 
   return (
     <Page title="Visite mediche" back="/">
       {!visits.length && <Empty>Nessuna visita registrata.<br />Tocca + per aggiungerne una.</Empty>}
-      {highlights.length > 0 && (
-        <>
-          <SectionTitle>In evidenza</SectionTitle>
-          <div className="space-y-2">
-            {highlights.map((h) => (
-                <Card key={h.key} onClick={() => navigate(h.href)}>
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl">{h.icon}</span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium">{h.title}</div>
-                      <div className="text-sm text-muted">{h.sub}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-medium text-shiba">{formatDate(h.date)}</div>
-                      <div className="text-xs text-muted">{daysLabel(daysBetween(today, h.date))}</div>
-                    </div>
-                  </div>
-                </Card>
-            ))}
-          </div>
-        </>
-      )}
+      <Highlights items={highlights} />
       {visits.length > 0 && <SectionTitle>Tutte le visite</SectionTitle>}
       <div className="space-y-2">
         {visits.map((v) => (
@@ -77,8 +57,6 @@ function VisitList() {
   )
 }
 
-const daysLabel = (n: number) =>
-  n < 0 ? `scaduto da ${-n} ${n === -1 ? 'giorno' : 'giorni'}` : n === 0 ? 'oggi' : n === 1 ? 'domani' : `tra ${n} giorni`
 
 function VisitRow({ v, upcoming }: { v: Visit; upcoming?: boolean }) {
   return (

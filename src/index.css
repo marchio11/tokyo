@@ -25,6 +25,11 @@
   color-scheme: dark;
 }
 
+html {
+  /* testi un po' più grandi (18px invece di 16px): tutte le misure in rem si adeguano */
+  font-size: 112.5%;
+}
+
 html,
 body {
   background: var(--color-bg);
@@ -39,7 +44,7 @@ body {
 input,
 select,
 textarea {
-  font-size: 16px; /* evita lo zoom automatico su mobile */
+  font-size: 1rem; /* almeno 16px: evita lo zoom automatico su mobile */
 }
 
 input[type='date']::-webkit-calendar-picker-indicator {
