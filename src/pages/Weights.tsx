@@ -1,3 +1,4 @@
+import { DetailCard, DetailPage, DetailRow } from '../components/Detail'
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, newId, type Weight } from '../db'
@@ -9,8 +10,11 @@ import { Card, Empty, Fab, Field, FormActions, Input, Loading, Page, SectionTitl
 
 type Range = '3m' | '6m' | '1a' | 'tutto'
 
-export function WeightsPage({ id }: { id?: string }) {
-  return id ? <WeightForm id={id} /> : <WeightList />
+export function WeightsPage({ parts }: { parts: string[] }) {
+  // /peso · /peso/nuovo · /peso/<id> (scheda) · /peso/<id>/modifica
+  const [id, sub] = parts
+  if (!id) return <WeightList />
+  return id === 'nuovo' || sub === 'modifica' ? <WeightForm id={id} /> : <WeightDetail id={id} />
 }
 
 export const fmtKg = (kg: number) => `${kg.toLocaleString('it-IT', { maximumFractionDigits: 2 })} kg`
@@ -140,5 +144,21 @@ function WeightFormInner({ rec }: { rec: Weight | null }) {
         onDelete={rec ? async () => (await db.weights.delete(rec.id), goBack('/peso')) : undefined}
       />
     </Page>
+  )
+}
+
+/** Scheda di sola lettura della pesata */
+function WeightDetail({ id }: { id: string }) {
+  const w = useLiveQuery(async () => (await db.weights.get(id)) ?? null, [id])
+  return (
+    <DetailPage title="Pesata" back="/peso" editHref={`/peso/${id}/modifica`} record={w}>
+      {(w) => (
+        <DetailCard accent="#eab308">
+          <DetailRow label="Peso">{fmtKg(w.kg)}</DetailRow>
+          <DetailRow label="Data">{formatDate(w.date)}</DetailRow>
+          <DetailRow label="Note">{w.notes}</DetailRow>
+        </DetailCard>
+      )}
+    </DetailPage>
   )
 }

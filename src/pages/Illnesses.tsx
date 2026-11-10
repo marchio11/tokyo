@@ -1,7 +1,9 @@
+import { DetailCard, DetailPage, DetailRow, DetailSection, LinkRow } from '../components/Detail'
+import { SavedAttachments } from '../components/Attachments'
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, illnessSuggestions, deleteWithAttachments, getProfile, newId, type Illness, type Medication, type Severity, type Visit } from '../db'
-import { daysBetween, periodLabel, todayISO } from '../lib/dates'
+import { daysBetween, formatDate, periodLabel, todayISO } from '../lib/dates'
 import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
 import { AttachmentsField, useAttachments } from '../components/Attachments'
@@ -13,8 +15,11 @@ import { Card, Empty, Fab, Field, FormActions, Input, Loading, Page, Pill, Segme
 
 const SEVERITY_COLOR: Record<Severity, string> = { lieve: '#eab308', media: '#f97316', forte: '#ef4444' }
 
-export function IllnessesPage({ id }: { id?: string }) {
-  return id ? <IllnessForm id={id} /> : <IllnessList />
+export function IllnessesPage({ parts }: { parts: string[] }) {
+  // /malattie · /malattie/nuovo · /malattie/<id> (scheda) · /malattie/<id>/modifica
+  const [id, sub] = parts
+  if (!id) return <IllnessList />
+  return id === 'nuovo' || sub === 'modifica' ? <IllnessForm id={id} /> : <IllnessDetail id={id} />
 }
 
 function IllnessList() {
@@ -216,4 +221,63 @@ async function deleteIllness(i: Illness, meds: Medication[]) {
   }
   await deleteWithAttachments('illnesses', i.id)
   goBack('/malattie')
+}
+
+/** Scheda di sola lettura dell'episodio */
+function IllnessDetail({ id }: { id: string }) {
+  const data = useLiveQuery(async () => {
+    const i = (await db.illnesses.get(id)) ?? null
+    const visits = (await db.visits.filter((v) => v.illnessId === id).toArray()).sort((a, b) => a.date.localeCompare(b.date))
+    const vIds = new Set(visits.map((v) => v.id))
+    const meds = (await db.medications.filter((m) => m.illnessId === id || (!!m.visitId && vIds.has(m.visitId))).toArray()).sort((a, b) =>
+      a.startDate.localeCompare(b.startDate),
+    )
+    return { i, visits, meds }
+  }, [id])
+  return (
+    <DetailPage title={data?.i?.category ?? 'Episodio'} back="/malattie" editHref={`/malattie/${id}/modifica`} record={data?.i}>
+      {(i) => (
+        <>
+          <DetailCard accent="#ef4444">
+            <DetailRow label="Periodo">
+              {periodLabel(i.startDate, i.endDate)}
+              {i.endDate ? ` · ${daysBetween(i.startDate, i.endDate) + 1} ${daysBetween(i.startDate, i.endDate) === 0 ? 'giorno' : 'giorni'}` : ''}
+            </DetailRow>
+            <DetailRow label="Descrizione">{i.description}</DetailRow>
+            <DetailRow label="Gravità">{i.severity && i.severity[0].toUpperCase() + i.severity.slice(1)}</DetailRow>
+            <DetailRow label="Note">{i.notes}</DetailRow>
+          </DetailCard>
+          {!!data?.meds.length && (
+            <DetailSection title="Farmaci somministrati">
+              <div className="space-y-1.5">
+                {data.meds.map((m) => (
+                  <LinkRow
+                    key={m.id}
+                    color="#f97316"
+                    title={m.name}
+                    sub={[periodLabel(m.startDate, m.endDate), m.dosage, m.frequency].filter(Boolean).join(' · ')}
+                    href={`/farmaci/${m.id}`}
+                  />
+                ))}
+              </div>
+            </DetailSection>
+          )}
+          {!!data?.visits.length && (
+            <DetailSection title="Visite per questo episodio">
+              <div className="space-y-1.5">
+                {data.visits.map((v) => (
+                  <LinkRow key={v.id} color="#3b82f6" title={v.type} sub={[formatDate(v.date), v.vet].filter(Boolean).join(' · ')} href={`/visite/${v.id}`} />
+                ))}
+              </div>
+            </DetailSection>
+          )}
+          {i.attachmentIds.length > 0 && (
+            <DetailSection title="Allegati">
+              <SavedAttachments ids={i.attachmentIds} />
+            </DetailSection>
+          )}
+        </>
+      )}
+    </DetailPage>
+  )
 }

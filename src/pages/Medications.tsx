@@ -1,3 +1,5 @@
+import { DetailCard, DetailPage, DetailRow, DetailSection } from '../components/Detail'
+import { SavedAttachments } from '../components/Attachments'
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, deleteWithAttachments, newId, type IntervalUnit, type Medication, type MedKind } from '../db'
@@ -19,9 +21,10 @@ export const MED_KINDS: { value: MedKind; label: string; color: string }[] = [
 export const medColor = (k: MedKind) => MED_KINDS.find((m) => m.value === k)!.color
 
 export function MedicationsPage({ parts }: { parts: string[] }) {
-  // /farmaci · /farmaci/nuovo · /farmaci/<id>
-  const [id] = parts
-  return id ? <MedForm id={id} /> : <MedList />
+  // /farmaci · /farmaci/nuovo · /farmaci/<id> (scheda) · /farmaci/<id>/modifica
+  const [id, sub] = parts
+  if (!id) return <MedList />
+  return id === 'nuovo' || sub === 'modifica' ? <MedForm id={id} /> : <MedDetail id={id} />
 }
 
 function MedList() {
@@ -242,5 +245,44 @@ function MedFormInner({ rec, all }: { rec: Medication | null; all: Medication[] 
         onDelete={rec ? async () => (await deleteWithAttachments('medications', rec.id), goBack('/farmaci')) : undefined}
       />
     </Page>
+  )
+}
+
+/** Scheda di sola lettura del farmaco / integratore */
+function MedDetail({ id }: { id: string }) {
+  const m = useLiveQuery(async () => (await db.medications.get(id)) ?? null, [id])
+  return (
+    <DetailPage title={m?.name ?? 'Farmaco'} back="/farmaci" editHref={`/farmaci/${id}/modifica`} record={m}>
+      {(m) => (
+        <>
+          <DetailCard accent={medColor(m.kind)}>
+            <DetailRow label="Tipo">{MED_KINDS.find((k) => k.value === m.kind)?.label.replace('Antiparass.', 'Antiparassitario')}</DetailRow>
+            <DetailRow label="Periodo">{periodLabel(m.startDate, m.endDate)}</DetailRow>
+            <DetailRow label="Dosaggio">{m.dosage}</DetailRow>
+            <DetailRow label="Frequenza">{m.frequency}</DetailRow>
+            <DetailRow label="Nuovo ciclo">
+              {m.reminder &&
+                (m.reminder.done
+                  ? 'già avviato'
+                  : m.endDate
+                    ? `${formatDate(addInterval(m.endDate, m.reminder.amount, m.reminder.unit))} (${m.reminder.amount} ${m.reminder.unit} dopo la fine)`
+                    : `${m.reminder.amount} ${m.reminder.unit} dopo la fine`)}
+            </DetailRow>
+            <DetailRow label="Note">{m.notes}</DetailRow>
+          </DetailCard>
+          {(m.visitId || m.illnessId) && (
+            <div className="flex flex-col gap-1.5 px-1">
+              {m.visitId && <FromVisit visitId={m.visitId} />}
+              {m.illnessId && <ForIllness illnessId={m.illnessId} />}
+            </div>
+          )}
+          {m.attachmentIds.length > 0 && (
+            <DetailSection title="Allegati">
+              <SavedAttachments ids={m.attachmentIds} />
+            </DetailSection>
+          )}
+        </>
+      )}
+    </DetailPage>
   )
 }
