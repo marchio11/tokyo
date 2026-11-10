@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from '../db'
+import { db, getProfile } from '../db'
 import { formatDate, periodLabel, todayISO } from '../lib/dates'
 import { navigate } from '../lib/router'
 import { Card, Empty, Loading, Page, SectionTitle } from '../components/ui'
@@ -70,11 +70,13 @@ const SECTIONS: { id: string; label: string }[] = [
   { id: 'visit', label: 'Visite' },
   { id: 'food', label: 'Alimentazione' },
   { id: 'weight', label: 'Pesate' },
+  { id: 'doc', label: 'Documenti di Tokyo' },
 ]
 
 export function SearchPage() {
   const [query, setQuery] = useState('')
   const data = useLiveQuery(async () => {
+    const docIds = new Set((await getProfile()).documentIds ?? [])
     const [illnesses, meds, visits, foods, weights, atts] = await Promise.all([
       db.illnesses.toArray(),
       db.medications.toArray(),
@@ -141,6 +143,18 @@ export function SearchPage() {
         href: `/cibo/${f.id}`,
         color: '#a855f7',
       })),
+      ...atts
+        .filter((a) => docIds.has(a.id))
+        .map((a) => ({
+          section: 'doc',
+          key: a.id,
+          date: new Date(a.createdAt).toISOString().slice(0, 10),
+          title: a.name,
+          sub: 'documento',
+          fields: [a.name],
+          href: '/scheda',
+          color: '#f28c28',
+        })),
       ...weights.map((w) => ({
         section: 'weight',
         key: w.id,

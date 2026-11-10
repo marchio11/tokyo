@@ -109,6 +109,8 @@ export interface Profile {
   /** disturbi proposti come suggerimento nell'inserimento di un episodio */
   illnessSuggestions?: string[]
   visitTypes: string[]
+  /** documenti di Tokyo (pedigree, passaggio di proprietà…): id degli allegati */
+  documentIds?: string[]
 }
 
 const DEFAULT_ILLNESS_SUGGESTIONS = ['Otite', 'Diarrea', 'Vomito', 'Dermatite', 'Ghiandole perianali']

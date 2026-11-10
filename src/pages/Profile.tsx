@@ -8,6 +8,7 @@ import { auth, signOut } from '../lib/firebase'
 import { runGoogleSync } from '../lib/cloud'
 import { useStatus } from '../lib/status'
 import { useErrors } from '../lib/diag'
+import { Documents } from '../components/Documents'
 import { Button, Card, Field, Input, Loading, Page, SectionTitle, TextArea } from '../components/ui'
 
 export function ProfilePage() {
@@ -24,7 +25,9 @@ function ProfileInner({ profile }: { profile: Profile }) {
     setSaved(false)
   }
   const save = async () => {
-    await db.profile.put(p)
+    // i documenti si salvano a parte: si conserva l'elenco attuale
+    const current = await getProfile()
+    await db.profile.put({ ...p, documentIds: current.documentIds })
     setSaved(true)
   }
 
@@ -98,6 +101,9 @@ function ProfileInner({ profile }: { profile: Profile }) {
           {saved ? '✓ Salvato' : 'Salva scheda'}
         </Button>
       </div>
+
+      <SectionTitle>📁 Documenti di Tokyo</SectionTitle>
+      <Documents />
 
       <SectionTitle>Riepilogo</SectionTitle>
       <Card onClick={() => navigate('/riepilogo')}>

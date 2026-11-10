@@ -79,7 +79,16 @@ export function AttachmentsField({ state }: { state: ReturnType<typeof useAttach
 }
 
 /** Elenco allegati in sola lettura (o con rimozione) */
-export function AttachmentList({ items, onRemove }: { items: Item[]; onRemove?: (id: string) => void }) {
+export function AttachmentList({
+  items,
+  onRemove,
+  showNames = false,
+}: {
+  items: Item[]
+  onRemove?: (id: string) => void
+  /** mostra il nome del file anche sotto le immagini (documenti) */
+  showNames?: boolean
+}) {
   const [viewer, setViewer] = useState<Item | null>(null)
   const [loading, setLoading] = useState<string | null>(null)
   if (!items.length) return null
@@ -127,6 +136,9 @@ export function AttachmentList({ items, onRemove }: { items: Item[]; onRemove?: 
                 </div>
               )}
             </button>
+            {showNames && a.type.startsWith('image/') && a.blob && (
+              <span className="mt-1 line-clamp-2 block text-center text-xs break-all text-muted">{a.name}</span>
+            )}
             {onRemove && (
               <button
                 type="button"
