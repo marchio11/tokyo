@@ -90,6 +90,8 @@ export interface Attachment {
   blob?: Blob
   /** id del file su Google Drive, una volta caricato */
   driveId?: string
+  /** nome del file su Drive, se diverso da `name` va rinominato */
+  driveName?: string
   createdAt: number
 }
 
