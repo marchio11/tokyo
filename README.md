@@ -5,14 +5,16 @@ visite, malattie, farmaci e integratori, alimentazione, peso e un calendario ria
 
 ## Funzioni
 
-- **Dashboard**: contatore "giorni senza…" per ogni disturbo (😊 oltre 50 giorni, 😐 21–50, 😟 0–20, "in corso" se l'episodio non è chiuso), promemoria dei cicli, riepilogo del giorno.
-- **Visite**: tipo, data (anche futura), veterinario, note, allegati.
-- **Malattie**: disturbo, descrizione, inizio/fine, gravità, note, allegati e foto.
-- **Farmaci e integratori**: tipo (farmaco/integratore/antiparassitario), dosaggio, frequenza, periodo, avviso per il ciclo successivo (es. 2 mesi dopo la fine).
+- **Dashboard**: contatore "giorni senza…" per i disturbi scelti nella scheda (😊 oltre 50 giorni, 😐 21–50, 😟 0–20, "in corso" se l'episodio è aperto); riquadro **In evidenza** con scadenze dei prossimi 30 giorni, farmaci e integratori in corso e ultimo peso; ricerca in fondo.
+- **Visite**: tipo, data, veterinario, note, allegati, promemoria del richiamo (es. vaccini). Le visite "Malattia" creano o aggiornano un episodio; le altre (es. ecografia) possono collegarsi a un episodio esistente. In ogni visita si possono registrare i farmaci prescritti.
+- **Malattie**: disturbo, descrizione, inizio/fine, gravità, note, allegati, farmaci somministrati e visite collegate.
+- **Farmaci e integratori**: tipo (farmaco/integratore/antiparassitario), dosaggio, frequenza, periodo, avviso per il ciclo successivo, collegamento alla visita o all'episodio.
 - **Alimentazione**: crocchette/umido/snack con periodo d'uso.
 - **Peso**: storico e grafico dell'andamento.
-- **Calendario** stile Garmin Connect con barre colorate per tipo di evento.
-- **Backup** esportabile/ripristinabile (allegati inclusi).
+- **Calendario** stile Garmin Connect con barre colorate per tipo di evento e aggiunta rapida.
+- **Schede di sola lettura** per le voci salvate, con ✏️ per modificarle.
+- **Ricerca** in tutte le sezioni, senza distinzione di maiuscole e accenti.
+- **Riepilogo sanitario in PDF** e **backup** esportabile/ripristinabile.
 
 I dati sono sincronizzati con **Firebase Firestore** (con copia locale per l'uso offline), gli allegati vanno nella cartella "Tokyo" di **Google Drive** e visite e promemoria compaiono nel calendario Google **"Tokyo"**.
 
@@ -22,7 +24,8 @@ L'app è un Worker Cloudflare (`wrangler.jsonc`) che serve i file di `dist/`:
 https://tokyo.andrea-marchionni11.workers.dev
 
 Ogni push su `main` viene pubblicato in automatico da **Cloudflare Workers Builds**
-(build: `npm run build`, deploy: `npx wrangler deploy`).
+(build: `npm run build`, deploy: `npx wrangler deploy`). Se una build non parte
+(raramente l'avviso da GitHub non arriva a Cloudflare), basta un nuovo push su `main`.
 
 ## Sviluppo
 
