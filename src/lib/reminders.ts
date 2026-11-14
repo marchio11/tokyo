@@ -1,10 +1,12 @@
 import { db, type ISODate, type Medication, type Visit } from '../db'
 import { addInterval, daysBetween, todayISO } from './dates'
+import { isSingleDose, reminderBase } from './meds'
 
 /** Data in cui avviare il nuovo ciclo, se il farmaco ha un avviso attivo e una data di fine */
 export function reminderDate(med: Medication): ISODate | undefined {
-  if (!med.reminder || med.reminder.done || !med.endDate) return undefined
-  return addInterval(med.endDate, med.reminder.amount, med.reminder.unit)
+  const base = reminderBase(med)
+  if (!med.reminder || med.reminder.done || !base) return undefined
+  return addInterval(base, med.reminder.amount, med.reminder.unit)
 }
 
 /** Data del richiamo di una visita (es. vaccino), se il promemoria è attivo */
@@ -18,6 +20,10 @@ export interface DueReminder {
   kind: 'med' | 'visit'
   id: string
   title: string
+  /** nome del prodotto o tipo di visita */
+  name: string
+  /** cosa scade: "inizio nuovo ciclo", "prossima somministrazione", "richiamo" */
+  label: string
   icon: string
   dueDate: ISODate
   /** giorni mancanti (negativo = scaduto) */
@@ -37,7 +43,9 @@ export function allReminders(meds: Medication[], visits: Visit[] = []): DueRemin
         key: `m${m.id}`,
         kind: 'med',
         id: m.id,
-        title: `Nuovo ciclo: ${m.name}`,
+        title: isSingleDose(m) ? `Prossima somministrazione: ${m.name}` : `Nuovo ciclo: ${m.name}`,
+        name: m.name,
+        label: isSingleDose(m) ? 'prossima somministrazione' : 'inizio nuovo ciclo',
         icon: '🔔',
         dueDate,
         daysLeft: daysBetween(today, dueDate),
@@ -53,6 +61,8 @@ export function allReminders(meds: Medication[], visits: Visit[] = []): DueRemin
         kind: 'visit',
         id: v.id,
         title: `Richiamo: ${v.type}`,
+        name: v.type,
+        label: 'richiamo',
         icon: '💉',
         dueDate,
         daysLeft: daysBetween(today, dueDate),
@@ -90,13 +100,15 @@ const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().t
 export async function closePreviousCycles(med: Pick<Medication, 'id' | 'name' | 'startDate'>) {
   const all = await db.medications.toArray()
   for (const m of all) {
-    if (m.id === med.id || !sameName(m.name, med.name) || !m.reminder || m.reminder.done || !m.endDate || m.endDate > med.startDate) continue
+    const base = reminderBase(m)
+    if (m.id === med.id || !sameName(m.name, med.name) || !m.reminder || m.reminder.done || !base || base > med.startDate) continue
     await db.medications.update(m.id, { reminder: { ...m.reminder, done: true } })
   }
-  // inserendo un ciclo passato, se dopo di lui ne è già iniziato un altro il suo avviso è già superato
+  // inserendo un ciclo (o una dose) passato, se dopo ne è già iniziato un altro il suo avviso è già superato
   const self = all.find((m) => m.id === med.id) ?? (await db.medications.get(med.id))
-  if (self?.reminder && !self.reminder.done && self.endDate) {
-    const later = all.some((m) => m.id !== self.id && sameName(m.name, self.name) && m.startDate >= self.endDate!)
+  const selfBase = self && reminderBase(self)
+  if (self?.reminder && !self.reminder.done && selfBase) {
+    const later = all.some((m) => m.id !== self.id && sameName(m.name, self.name) && m.startDate > self.startDate && m.startDate >= selfBase)
     if (later) await db.medications.update(self.id, { reminder: { ...self.reminder, done: true } })
   }
 }

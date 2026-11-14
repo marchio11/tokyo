@@ -3,8 +3,9 @@ import { SavedAttachments } from '../components/Attachments'
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, deleteWithAttachments, newId, type IntervalUnit, type Medication, type MedKind } from '../db'
-import { addDays, addInterval, formatDate, periodLabel, todayISO } from '../lib/dates'
+import { addDays, addInterval, formatDate, intervalLabel, todayISO } from '../lib/dates'
 import { allReminders, closePreviousCycles } from '../lib/reminders'
+import { isSingleDose, medActiveOn, medEnd, medPeriod, reminderBase } from '../lib/meds'
 import { Highlights } from '../components/Highlights'
 import { ForIllness, FromVisit } from '../components/Links'
 import { ComboInput } from '../components/ComboInput'
@@ -31,9 +32,9 @@ function MedList() {
   const meds = useLiveQuery(() => db.medications.orderBy('startDate').reverse().toArray())
   if (!meds) return <Loading />
   const today = todayISO()
-  const active = meds.filter((m) => m.startDate <= today && (!m.endDate || m.endDate >= today))
+  const active = meds.filter((m) => medActiveOn(m, today))
   const future = meds.filter((m) => m.startDate > today)
-  const ended = meds.filter((m) => m.endDate && m.endDate < today)
+  const ended = meds.filter((m) => !!medEnd(m) && medEnd(m)! < today)
   const reminders = allReminders(meds)
 
   return (
@@ -45,8 +46,8 @@ function MedList() {
           key: r.key,
           date: r.dueDate,
           icon: '🔔',
-          title: r.title.replace(/^Nuovo ciclo: /, ''),
-          sub: 'inizio nuovo ciclo',
+          title: r.name,
+          sub: r.label,
           href: `/farmaci/${r.id}`,
         }))}
       />
@@ -72,14 +73,16 @@ function MedRow({ m }: { m: Medication }) {
             <span className="truncate font-medium">{m.name}</span>
             <Pill color={color}>{m.kind}</Pill>
           </div>
-          <div className="text-sm text-muted">{periodLabel(m.startDate, m.endDate)}</div>
+          <div className="text-sm text-muted">{medPeriod(m)}</div>
           {m.visitId ? <FromVisit visitId={m.visitId} /> : m.illnessId && <ForIllness illnessId={m.illnessId} />}
           {(m.dosage || m.frequency) && (
             <div className="text-sm text-[#c9c9d1]">{[m.dosage, m.frequency].filter(Boolean).join(' · ')}</div>
           )}
           {m.reminder && !m.reminder.done && (
             <div className="mt-1 text-xs text-shiba">
-              🔔 nuovo ciclo {m.reminder.amount} {m.reminder.unit} dopo la fine
+              {isSingleDose(m)
+                ? `🔔 prossima somministrazione dopo ${intervalLabel(m.reminder.amount, m.reminder.unit)}`
+                : `🔔 nuovo ciclo ${intervalLabel(m.reminder.amount, m.reminder.unit)} dopo la fine`}
             </div>
           )}
         </div>
@@ -128,8 +131,19 @@ function MedFormInner({ rec, all }: { rec: Medication | null; all: Medication[] 
     }
   }
 
-  const validEnd = !endDate || endDate >= startDate
+  const single = isSingleDose({ kind })
+  const validEnd = single || !endDate || endDate >= startDate
   const amount = Math.max(1, parseInt(remAmount) || 0)
+
+  /** Scegliendo "Antiparassitario" il promemoria della prossima dose parte già impostato a 1 mese */
+  const changeKind = (k: MedKind) => {
+    setKind(k)
+    if (!rec && isSingleDose({ kind: k }) && !remOn) {
+      setRemOn(true)
+      setRemAmount('1')
+      setRemUnit('mesi')
+    }
+  }
 
   const save = async () => {
     const attachmentIds = await att.commit()
@@ -142,7 +156,8 @@ function MedFormInner({ rec, all }: { rec: Medication | null; all: Medication[] 
       dosage: dosage.trim() || undefined,
       frequency: frequency.trim() || undefined,
       startDate,
-      endDate: endDate || undefined,
+      // una somministrazione singola dura un giorno
+      endDate: single ? startDate : endDate || undefined,
       notes: notes.trim() || undefined,
       // se l'utente cambia l'intervallo l'avviso torna attivo
       reminder: remOn
@@ -163,7 +178,7 @@ function MedFormInner({ rec, all }: { rec: Medication | null; all: Medication[] 
             {rec.illnessId && <ForIllness illnessId={rec.illnessId} />}
           </div>
         )}
-        <Segmented value={kind} onChange={setKind} options={MED_KINDS} />
+        <Segmented value={kind} onChange={changeKind} options={MED_KINDS} />
         <Field label="Nome prodotto">
           <ComboInput value={name} onChange={changeName} options={names} placeholder="es. Omega 3" />
         </Field>
@@ -175,6 +190,12 @@ function MedFormInner({ rec, all }: { rec: Medication | null; all: Medication[] 
             <Input value={frequency} onChange={(e) => setFrequency(e.target.value)} placeholder="es. 2 volte al giorno" />
           </Field>
         </div>
+        {single ? (
+          <Field label="Data di somministrazione">
+            <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+          </Field>
+        ) : (
+          <>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Inizio">
             <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
@@ -203,11 +224,16 @@ function MedFormInner({ rec, all }: { rec: Medication | null; all: Medication[] 
           )}
         </div>
 
+          </>
+        )}
+
         <Card className="space-y-3 border border-line bg-transparent">
           <label className="flex items-center justify-between gap-3">
             <span>
-              <span className="block font-medium">🔔 Avviso nuovo ciclo</span>
-              <span className="block text-xs text-muted">Ricordami di ripartire dopo la fine di questo ciclo</span>
+              <span className="block font-medium">{single ? '🔔 Promemoria prossima somministrazione' : '🔔 Avviso nuovo ciclo'}</span>
+              <span className="block text-xs text-muted">
+                {single ? 'Ricordami quando ridarla (es. tra 1 mese)' : 'Ricordami di ripartire dopo la fine di questo ciclo'}
+              </span>
             </span>
             <input type="checkbox" checked={remOn} onChange={(e) => setRemOn(e.target.checked)} className="size-6 accent-shiba" />
           </label>
@@ -223,12 +249,14 @@ function MedFormInner({ rec, all }: { rec: Medication | null; all: Medication[] 
                   <option value="mesi">mesi</option>
                   <option value="anni">anni</option>
                 </Select>
-                <span className="text-sm text-muted">dopo la fine</span>
+                <span className="text-sm text-muted">{single ? 'dopo' : 'dopo la fine'}</span>
               </div>
               <p className="text-xs text-muted">
-                {endDate
-                  ? `Avviso il ${formatDate(addInterval(endDate, amount, remUnit))}`
-                  : 'L’avviso partirà quando inserirai la data di fine.'}
+                {single
+                  ? `Prossima somministrazione il ${formatDate(addInterval(startDate, amount, remUnit))}: comparirà anche nel calendario “Tokyo”.`
+                  : endDate
+                    ? `Avviso il ${formatDate(addInterval(endDate, amount, remUnit))}`
+                    : 'L’avviso partirà quando inserirai la data di fine.'}
               </p>
             </>
           )}
@@ -257,16 +285,18 @@ function MedDetail({ id }: { id: string }) {
         <>
           <DetailCard accent={medColor(m.kind)}>
             <DetailRow label="Tipo">{MED_KINDS.find((k) => k.value === m.kind)?.label.replace('Antiparass.', 'Antiparassitario')}</DetailRow>
-            <DetailRow label="Periodo">{periodLabel(m.startDate, m.endDate)}</DetailRow>
+            <DetailRow label={isSingleDose(m) ? 'Somministrato' : 'Periodo'}>{isSingleDose(m) ? formatDate(m.startDate) : medPeriod(m)}</DetailRow>
             <DetailRow label="Dosaggio">{m.dosage}</DetailRow>
             <DetailRow label="Frequenza">{m.frequency}</DetailRow>
-            <DetailRow label="Nuovo ciclo">
+            <DetailRow label={isSingleDose(m) ? 'Prossima somministrazione' : 'Nuovo ciclo'}>
               {m.reminder &&
                 (m.reminder.done
-                  ? 'già avviato'
-                  : m.endDate
-                    ? `${formatDate(addInterval(m.endDate, m.reminder.amount, m.reminder.unit))} (${m.reminder.amount} ${m.reminder.unit} dopo la fine)`
-                    : `${m.reminder.amount} ${m.reminder.unit} dopo la fine`)}
+                  ? isSingleDose(m)
+                    ? 'già fatta'
+                    : 'già avviato'
+                  : reminderBase(m)
+                    ? `${formatDate(addInterval(reminderBase(m)!, m.reminder.amount, m.reminder.unit))} (${intervalLabel(m.reminder.amount, m.reminder.unit)} dopo${isSingleDose(m) ? '' : ' la fine'})`
+                    : `${intervalLabel(m.reminder.amount, m.reminder.unit)} dopo la fine`)}
             </DetailRow>
             <DetailRow label="Note">{m.notes}</DetailRow>
           </DetailCard>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { newId, type IntervalUnit, type Medication, type MedKind } from '../db'
 import { addDays, addInterval, formatDate } from '../lib/dates'
 import { ComboInput } from './ComboInput'
+import { isSingleDose } from '../lib/meds'
 import { Card, Field, Input, Segmented, Select } from './ui'
 
 const KINDS: { value: MedKind; label: string }[] = [
@@ -53,7 +54,8 @@ export const medToDraft = (m: Medication): MedDraft => ({
   remUnit: m.reminder?.unit ?? 'mesi',
 })
 
-export const medDraftValid = (d: MedDraft) => !!d.name.trim() && !!d.startDate && (!d.endDate || d.endDate >= d.startDate)
+export const medDraftValid = (d: MedDraft) =>
+  !!d.name.trim() && !!d.startDate && (isSingleDose(d) || !d.endDate || d.endDate >= d.startDate)
 
 /** Converte la bozza nel record da salvare nella sezione Farmaci */
 export function draftToMed(d: MedDraft, link: { visitId?: string; illnessId?: string }): Medication {
@@ -67,7 +69,8 @@ export function draftToMed(d: MedDraft, link: { visitId?: string; illnessId?: st
     dosage: d.dosage.trim() || undefined,
     frequency: d.frequency.trim() || undefined,
     startDate: d.startDate,
-    endDate: d.endDate || undefined,
+    // una somministrazione singola (antiparassitario) dura un giorno
+    endDate: isSingleDose(d) ? d.startDate : d.endDate || undefined,
     notes: d.existing?.notes,
     reminder: d.remOn ? { amount, unit: d.remUnit, done: prev?.amount === amount && prev.unit === d.remUnit ? prev.done : undefined } : undefined,
     visitId: link.visitId ?? d.existing?.visitId,
@@ -117,7 +120,8 @@ export function Prescriptions({
       {open && (
         <div className="space-y-3 px-3 pb-3">
           {drafts.map((d, i) => {
-            const validEnd = !d.endDate || d.endDate >= d.startDate
+            const single = isSingleDose(d)
+            const validEnd = single || !d.endDate || d.endDate >= d.startDate
             const amount = Math.max(1, parseInt(d.remAmount) || 0)
             const pickName = (n: string) => {
               const prev = known.find((m) => m.name.trim().toLowerCase() === n.trim().toLowerCase())
@@ -142,7 +146,17 @@ export function Prescriptions({
                     Rimuovi
                   </button>
                 </div>
-                <Segmented value={d.kind} onChange={(k) => update(d.key, { kind: k })} options={KINDS} />
+                <Segmented
+                  value={d.kind}
+                  onChange={(k) =>
+                    update(
+                      d.key,
+                      // antiparassitario: promemoria della prossima dose già impostato a 1 mese
+                      isSingleDose({ kind: k }) && !d.existing && !d.remOn ? { kind: k, remOn: true, remAmount: '1', remUnit: 'mesi' } : { kind: k },
+                    )
+                  }
+                  options={KINDS}
+                />
                 <Field label="Nome prodotto">
                   <ComboInput value={d.name} onChange={pickName} options={names} placeholder="es. Antibiotico" />
                 </Field>
@@ -154,6 +168,12 @@ export function Prescriptions({
                     <Input value={d.frequency} onChange={(e) => update(d.key, { frequency: e.target.value })} placeholder="es. 2 volte al giorno" />
                   </Field>
                 </div>
+                {single ? (
+                  <Field label="Data di somministrazione">
+                    <Input type="date" value={d.startDate} onChange={(e) => update(d.key, { startDate: e.target.value })} />
+                  </Field>
+                ) : (
+                  <>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Inizio">
                     <Input type="date" value={d.startDate} onChange={(e) => update(d.key, { startDate: e.target.value })} className="px-2 text-[16px]" />
@@ -186,8 +206,10 @@ export function Prescriptions({
                     </>
                   )}
                 </div>
+                  </>
+                )}
                 <label className="flex items-center justify-between gap-3">
-                  <span className="text-sm">🔔 Avviso nuovo ciclo</span>
+                  <span className="text-sm">{single ? '🔔 Promemoria prossima somministrazione' : '🔔 Avviso nuovo ciclo'}</span>
                   <input type="checkbox" checked={d.remOn} onChange={(e) => update(d.key, { remOn: e.target.checked })} className="size-6 accent-shiba" />
                 </label>
                 {d.remOn && (
@@ -209,10 +231,14 @@ export function Prescriptions({
                         <option value="mesi">mesi</option>
                         <option value="anni">anni</option>
                       </Select>
-                      <span className="text-sm text-muted">dopo la fine</span>
+                      <span className="text-sm text-muted">{single ? 'dopo' : 'dopo la fine'}</span>
                     </div>
                     <p className="text-xs text-muted">
-                      {d.endDate ? `Nuovo ciclo il ${formatDate(addInterval(d.endDate, amount, d.remUnit))}` : 'L’avviso partirà quando inserirai la data di fine.'}
+                      {single
+                        ? `Prossima somministrazione il ${formatDate(addInterval(d.startDate, amount, d.remUnit))}`
+                        : d.endDate
+                          ? `Nuovo ciclo il ${formatDate(addInterval(d.endDate, amount, d.remUnit))}`
+                          : 'L’avviso partirà quando inserirai la data di fine.'}
                     </p>
                   </>
                 )}

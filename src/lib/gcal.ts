@@ -4,6 +4,7 @@ import { fs } from './firebase'
 import { gfetch, gjson } from './googleApi'
 import { addDays, addInterval, todayISO } from './dates'
 import { reminderDate } from './reminders'
+import { isSingleDose, reminderBase } from './meds'
 import { currentUid } from './sync'
 
 /**
@@ -38,6 +39,16 @@ function visitEvent(v: Visit): EventBody {
 }
 
 function reminderEvent(m: Medication, date: string): EventBody {
+  if (isSingleDose(m))
+    // antiparassitario: singola somministrazione da ripetere, avviso anche il giorno prima
+    return {
+      summary: `💊 Somministrare ${m.name}`,
+      description: `Prossima somministrazione di ${m.name} (${m.kind}).${m.dosage ? `\nDosaggio: ${m.dosage}` : ''}`,
+      start: { dateTime: `${date}T09:00:00`, timeZone: TZ },
+      end: { dateTime: `${date}T09:15:00`, timeZone: TZ },
+      reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 24 * 60 }, { method: 'popup', minutes: 0 }] },
+      status: 'confirmed',
+    }
   return {
     summary: `🔔 Nuovo ciclo: ${m.name}`,
     description: `Avvia un nuovo ciclo di ${m.name} (${m.kind}).${m.dosage ? `\nDosaggio: ${m.dosage}` : ''}${m.frequency ? `\nFrequenza: ${m.frequency}` : ''}`,
@@ -75,7 +86,7 @@ async function desiredEvents(map: SyncMap): Promise<Map<string, EventBody>> {
     }
   }
   for (const m of await db.medications.toArray()) {
-    if (!m.reminder || !m.endDate) continue
+    if (!m.reminder || !reminderBase(m)) continue
     const id = eventId('rem', m.id)
     const date = reminderDate({ ...m, reminder: { ...m.reminder, done: false } })!
     // un avviso archiviato sparisce se era futuro, resta se era già passato

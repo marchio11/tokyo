@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, getProfile } from '../db'
 import { addInterval, ageLabel, daysBetween, formatDate, periodLabel, todayISO } from '../lib/dates'
+import { medEnd, medPeriod } from '../lib/meds'
 import { Button, Loading, Page, Segmented } from '../components/ui'
 
 type Range = '3' | '6' | '12' | 'tutto'
@@ -26,7 +27,7 @@ export function ReportPage() {
   const { profile: p } = data
   const visits = data.visits.filter((v) => v.date >= from && v.date <= today)
   const illnesses = data.illnesses.filter((i) => overlaps(i.startDate, i.endDate))
-  const meds = data.medications.filter((m) => overlaps(m.startDate, m.endDate))
+  const meds = data.medications.filter((m) => overlaps(m.startDate, medEnd(m)))
   const foods = data.foods.filter((f) => overlaps(f.startDate, f.endDate))
   const weights = data.weights.filter((w) => w.date >= from && w.date <= today)
   const periodText = range === 'tutto' ? 'Tutto lo storico' : `${formatDate(from)} – ${formatDate(today)}`
@@ -81,7 +82,7 @@ export function ReportPage() {
 
         <Section title="Farmaci, integratori e antiparassitari" empty={!meds.length}>
           {meds.map((m) => (
-            <Row key={m.id} title={`${m.name} (${m.kind})`} meta={periodLabel(m.startDate, m.endDate)}>
+            <Row key={m.id} title={`${m.name} (${m.kind})`} meta={medPeriod(m)}>
               {[m.dosage, m.frequency, m.notes].filter(Boolean).join(' · ')}
             </Row>
           ))}
