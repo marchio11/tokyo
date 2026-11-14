@@ -14,7 +14,8 @@ import {
   type Profile,
   type Visit,
 } from '../db'
-import { addInterval, formatDate, periodLabel, todayISO } from '../lib/dates'
+import { addInterval, formatDate, periodLabel, todayISO, intervalLabel } from '../lib/dates'
+import { medPeriod } from '../lib/meds'
 import { allReminders, closePreviousCycles, visitReminderDate } from '../lib/reminders'
 import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
@@ -394,7 +395,7 @@ function VisitDetail({ id }: { id: string }) {
               {v.reminder &&
                 (v.reminder.done
                   ? 'già fatto'
-                  : `${formatDate(addInterval(v.date, v.reminder.amount, v.reminder.unit))} (dopo ${v.reminder.amount} ${v.reminder.unit})`)}
+                  : `${formatDate(addInterval(v.date, v.reminder.amount, v.reminder.unit))} (dopo ${intervalLabel(v.reminder.amount, v.reminder.unit)})`)}
             </DetailRow>
           </DetailCard>
           {data?.illness && (
@@ -415,7 +416,7 @@ function VisitDetail({ id }: { id: string }) {
                     key={m.id}
                     color="#f97316"
                     title={m.name}
-                    sub={[periodLabel(m.startDate, m.endDate), m.dosage, m.frequency].filter(Boolean).join(' · ')}
+                    sub={[medPeriod(m), m.dosage, m.frequency].filter(Boolean).join(' · ')}
                     href={`/farmaci/${m.id}`}
                   />
                 ))}

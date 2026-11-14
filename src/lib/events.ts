@@ -1,5 +1,6 @@
 import type { Food, ISODate, Illness, Medication, Visit, Weight } from '../db'
 import { isActiveOn } from './dates'
+import { medEnd } from './meds'
 import { reminderDate, visitReminderDate } from './reminders'
 
 export type EventKind = 'illness' | 'visit' | 'supplement' | 'drug' | 'parasite' | 'food' | 'weight' | 'reminder'
@@ -50,7 +51,7 @@ export function eventsOn(day: ISODate, d: AllData): DayEvent[] {
     if (visitReminderDate(v) === day) out.push({ kind: 'reminder', title: `Richiamo: ${v.type}`, href: `/visite/${v.id}` })
   }
   for (const m of d.medications) {
-    if (isActiveOn(day, m.startDate, m.endDate))
+    if (isActiveOn(day, m.startDate, medEnd(m)))
       out.push({ kind: medKind(m), title: m.name, detail: [m.dosage, m.frequency].filter(Boolean).join(' · ') || undefined, href: `/farmaci/${m.id}` })
     if (reminderDate(m) === day)
       out.push({ kind: 'reminder', title: `Nuovo ciclo: ${m.name}`, href: `/farmaci/${m.id}` })

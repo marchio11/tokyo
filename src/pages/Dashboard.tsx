@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, getProfile, type Illness } from '../db'
 import { ageLabel, daysBetween, formatDate, todayISO } from '../lib/dates'
+import { medActiveOn } from '../lib/meds'
 import { allReminders, reminderText } from '../lib/reminders'
 import { navigate } from '../lib/router'
 import { medColor } from './Medications'
@@ -52,7 +53,7 @@ export function Dashboard() {
   counters.sort((a, b) => Number(b.ongoing) - Number(a.ongoing) || (a.days ?? 1e9) - (b.days ?? 1e9))
 
   const reminders = allReminders(medications, visits).filter((r) => r.daysLeft <= 30)
-  const activeMeds = medications.filter((m) => m.startDate <= today && (!m.endDate || m.endDate >= today))
+  const activeMeds = medications.filter((m) => medActiveOn(m, today))
 
   return (
     <div className="mx-auto max-w-2xl px-4 pt-[max(env(safe-area-inset-top),16px)] pb-44">

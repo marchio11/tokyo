@@ -83,3 +83,8 @@ export function ageLabel(birth: ISODate): string {
   if (m) parts.push(`${m} ${m === 1 ? 'mese' : 'mesi'}`)
   return parts.join(' e ') || 'meno di un mese'
 }
+
+const SINGULAR: Record<IntervalUnit, string> = { giorni: 'giorno', settimane: 'settimana', mesi: 'mese', anni: 'anno' }
+
+/** "1 mese", "2 mesi", "1 anno"… */
+export const intervalLabel = (amount: number, unit: IntervalUnit) => `${amount} ${amount === 1 ? SINGULAR[unit] : unit}`

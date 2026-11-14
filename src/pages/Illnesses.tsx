@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, illnessSuggestions, deleteWithAttachments, getProfile, newId, type Illness, type Medication, type Severity, type Visit } from '../db'
 import { daysBetween, formatDate, periodLabel, todayISO } from '../lib/dates'
+import { medPeriod } from '../lib/meds'
 import { goBack, navigate, presetDate } from '../lib/router'
 import { useRecord } from '../lib/useRecord'
 import { AttachmentsField, useAttachments } from '../components/Attachments'
@@ -255,7 +256,7 @@ function IllnessDetail({ id }: { id: string }) {
                     key={m.id}
                     color="#f97316"
                     title={m.name}
-                    sub={[periodLabel(m.startDate, m.endDate), m.dosage, m.frequency].filter(Boolean).join(' · ')}
+                    sub={[medPeriod(m), m.dosage, m.frequency].filter(Boolean).join(' · ')}
                     href={`/farmaci/${m.id}`}
                   />
                 ))}

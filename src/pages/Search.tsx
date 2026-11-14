@@ -2,6 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, getProfile } from '../db'
 import { formatDate, periodLabel, todayISO } from '../lib/dates'
+import { medEnd, medPeriod } from '../lib/meds'
 import { navigate } from '../lib/router'
 import { Card, Empty, Loading, Page, SectionTitle } from '../components/ui'
 
@@ -106,7 +107,7 @@ export function SearchPage() {
         key: m.id,
         date: m.startDate,
         title: m.name,
-        sub: `${m.kind} · ${periodLabel(m.startDate, m.endDate)}`,
+        sub: `${m.kind} · ${medPeriod(m)}`,
         fields: [
           m.name,
           m.dosage,
@@ -121,7 +122,7 @@ export function SearchPage() {
         color: m.kind === 'farmaco' ? '#f97316' : m.kind === 'integratore' ? '#22c55e' : '#14b8a6',
         medName: m.name,
         start: m.startDate,
-        end: m.endDate,
+        end: medEnd(m),
       })),
       ...visits.map((v) => ({
         section: 'visit',
