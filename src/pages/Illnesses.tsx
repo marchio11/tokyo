@@ -26,7 +26,15 @@ export function IllnessesPage({ parts }: { parts: string[] }) {
 function IllnessList() {
   const list = useLiveQuery(() => db.illnesses.orderBy('startDate').reverse().toArray())
   const visits = useLiveQuery(() => db.visits.toArray())
+  const meds = useLiveQuery(() => db.medications.toArray())
   const [filter, setFilter] = useState('')
+  /** farmaci dati per l'episodio: direttamente o prescritti nelle visite collegate */
+  const medsFor = (id: string) => {
+    const vIds = new Set(visits?.filter((v) => v.illnessId === id).map((v) => v.id))
+    return (meds ?? [])
+      .filter((m) => m.illnessId === id || (!!m.visitId && vIds.has(m.visitId)))
+      .sort((a, b) => a.startDate.localeCompare(b.startDate))
+  }
   if (!list) return <Loading />
   const categories = [...new Set(list.map((i) => i.category))].sort()
   const shown = filter ? list.filter((i) => i.category === filter) : list
@@ -68,6 +76,15 @@ function IllnessList() {
                     return n ? ` · 🩺 ${n} ${n === 1 ? 'visita' : 'visite'}` : ''
                   })()}
                 </div>
+                {medsFor(i.id).length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {medsFor(i.id).map((m) => (
+                      <Pill key={m.id} color="#f97316">
+                        💊 {m.name}
+                      </Pill>
+                    ))}
+                  </div>
+                )}
                 {i.description && <p className="mt-1 line-clamp-2 text-sm text-[#c9c9d1]">{i.description}</p>}
               </div>
             </div>
